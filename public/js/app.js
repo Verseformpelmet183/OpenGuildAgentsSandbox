@@ -695,6 +695,7 @@ window.filterArtifacts=function(q){
 window.showAgentDetail=async function(agentId){
   const overlay=document.getElementById('agent-detail-overlay');
   if(!overlay)return;
+  overlay.dataset.loading='1';
   overlay.style.display='flex';
   overlay.innerHTML='<div class="agent-detail-panel" onclick="event.stopPropagation()"><div class="ad-loading">Loading agent...</div></div>';
 
@@ -715,6 +716,7 @@ window.showAgentDetail=async function(agentId){
 
     const energyPct=a.state?Math.round((1-(a.state.progress||0))*100):100;
 
+    delete overlay.dataset.loading;
     overlay.innerHTML=`
       <div class="agent-detail-panel" onclick="event.stopPropagation()">
         <div class="ad-header" style="border-color:${c}">
@@ -772,6 +774,7 @@ window.showAgentDetail=async function(agentId){
 };
 
 window.closeAgentDetail=function(){
+  console.log('[DEBUG] closeAgentDetail called', new Error().stack);
   const overlay=document.getElementById('agent-detail-overlay');
   if(overlay)overlay.style.display='none';
 };
