@@ -425,7 +425,7 @@ function initBrainGraph(data){
 
   // Add artifact nodes (diamonds) — fetch separately
   fetch('/api/brain/artifacts').then(r=>r.json()).then(artifacts=>{
-    brainArtifactNodes=artifacts.map((a,idx)=>{
+    brainArtifactNodes=(artifacts.filter(a=>a.validation_status!=='validated')).map((a,idx)=>{
       const angle=(idx/Math.max(1,artifacts.length))*Math.PI*2;
       const dist=Math.min(w,h)*0.15+Math.random()*30;
       return{
@@ -639,27 +639,42 @@ async function loadBrainArtifacts(){
   if(!panel)return;
   try{
     const res=await fetch('/api/brain/artifacts');
-    const artifacts=await res.json();
-    if(!artifacts.length){panel.innerHTML='<div class="ba-empty">No artifacts yet</div>';return}
+    const allArtifacts=await res.json();
+    // Split: active (pending/validating) vs archive (validated)
+    const active=allArtifacts.filter(a=>a.validation_status!=='validated');
+    const archived=allArtifacts.filter(a=>a.validation_status==='validated');
+
     panel.innerHTML=`
       <div class="ba-header">
-        <span class="ba-title">Artifacts (${artifacts.length})</span>
+        <span class="ba-title">Artifacts (${active.length})</span>
         <input class="ba-search" type="text" placeholder="Search…" oninput="filterArtifacts(this.value)">
       </div>
       <div class="ba-list" id="ba-list">
-        ${artifacts.map(a=>`
-          <div class="ba-card ba-status-${a.validation_status||'pending'}" data-title="${esc(a.title||a.filename).toLowerCase()}" onclick="showArtifactDetail(${a.id})">
-            <div class="ba-card-title">${esc(a.title||a.filename)}</div>
-            <div class="ba-card-meta">
-              <span class="ba-badge ba-badge-${a.validation_status||'pending'}">${a.validation_status||'pending'}</span>
-              <span class="ba-date">${(a.created_at||'').split('T')[0]||'—'}</span>
-            </div>
-            ${a.agent_ids?`<div class="ba-agents">${a.agent_ids.split(',').map(id=>{const ar=window._archetypes?.find(x=>x.id===id.trim());return ar?`<span class="ba-agent-dot" style="background:${ar.color}" title="${ar.name}"></span>`:`<span class="ba-agent-dot" title="${id.trim()}"></span>`}).join('')}</div>`:''}
-          </div>
-        `).join('')}
-      </div>`;
+        ${active.length?active.map(a=>renderArtifactCard(a)).join(''):'<div class="ba-empty">No pending artifacts</div>'}
+      </div>
+      ${archived.length?`
+        <div class="ba-archive-toggle" onclick="toggleArchive()">📦 Archive (${archived.length})</div>
+        <div class="ba-archive" id="ba-archive" style="display:none">
+          ${archived.map(a=>renderArtifactCard(a)).join('')}
+        </div>`:''}`;
   }catch(e){panel.innerHTML='<div class="ba-empty">Error loading artifacts</div>'}
 }
+
+function renderArtifactCard(a){
+  return `<div class="ba-card ba-status-${a.validation_status||'pending'}" data-title="${esc(a.title||a.filename).toLowerCase()}" onclick="showArtifactDetail(${a.id})">
+    <div class="ba-card-title">${esc(a.title||a.filename)}</div>
+    <div class="ba-card-meta">
+      <span class="ba-badge ba-badge-${a.validation_status||'pending'}">${a.validation_status||'pending'}</span>
+      <span class="ba-date">${(a.created_at||'').split('T')[0]||'—'}</span>
+    </div>
+    ${a.agent_ids?`<div class="ba-agents">${a.agent_ids.split(',').map(id=>{const ar=window._archetypes?.find(x=>x.id===id.trim());return ar?`<span class="ba-agent-dot" style="background:${ar.color}" title="${ar.name}"></span>`:`<span class="ba-agent-dot" title="${id.trim()}"></span>`}).join('')}</div>`:''}
+  </div>`;
+}
+
+window.toggleArchive=function(){
+  const el=document.getElementById('ba-archive');
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+};
 
 window.filterArtifacts=function(q){
   const cards=document.querySelectorAll('#ba-list .ba-card');
