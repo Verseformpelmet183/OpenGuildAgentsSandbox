@@ -226,7 +226,11 @@ function connectSSE(){
 // AGENTS VIEW
 // ══════════════════════════════════
 async function loadAgents(){
-  if(agentDetailOpen)return;
+  agentDetailOpen=false;
+  const detail=document.getElementById('agent-detail-inline');
+  if(detail)detail.style.display='none';
+  const grid=document.getElementById('agents-grid');
+  if(grid)grid.style.display='';
   const res=await fetch('/api/archetypes');archetypes=await res.json();
   renderAgentsGrid();
 }
