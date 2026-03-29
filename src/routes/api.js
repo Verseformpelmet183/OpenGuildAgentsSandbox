@@ -616,6 +616,25 @@ router.get('/visitors', (req, res) => {
   res.json({ count: getVisitorCount(), log: getVisitorLog() });
 });
 
+// Dungeon endpoints
+import { getDungeonMessages, getDungeonState, startNewSession } from '../engine/dungeon.js';
+
+router.get('/dungeon/messages', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  res.json(getDungeonMessages(limit));
+});
+
+router.get('/dungeon/state', (req, res) => {
+  res.json(getDungeonState());
+});
+
+router.post('/dungeon/new', async (req, res) => {
+  try {
+    const state = await startNewSession();
+    res.json({ ok: true, state });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 export default router;
 
 // Browser tool endpoints

@@ -11,6 +11,7 @@ import { startDiscussionLoop, generateDigest } from './engine/discussion.js';
 import { backfillBrain } from './engine/brain.js';
 import { generateDailySummaries } from './engine/diary.js';
 import { guildTick } from './engine/guild-chat.js';
+import { dungeonTick, startNewSession as startDungeon } from './engine/dungeon.js';
 import { generateQuestsFromBrain } from './engine/quests.js';
 import { generateWorldHistoryQuest } from './engine/quests.js';
 import { pruneBrain, startBrainWatcher } from './engine/brain-prune.js';
@@ -115,6 +116,17 @@ async function boot() {
   };
   setTimeout(guildLoop, 60000);
   console.log('✓ Guild chat engine running (10-30 min)');
+
+  // Dungeon — D&D-style roleplay, one turn every 10-20 min
+  const dungeonLoop = () => {
+    dungeonTick().catch(err => console.error('[Dungeon]', err.message));
+    setTimeout(dungeonLoop, 600000 + Math.random() * 600000); // 10-20 min
+  };
+  setTimeout(async () => {
+    try { await startDungeon(); } catch(e) { console.error('[Dungeon] Start:', e.message); }
+    setTimeout(dungeonLoop, 120000);
+  }, 90000);
+  console.log('✓ Dungeon engine running (10-20 min turns)');
 
   // Quest runner — every 2 min check for quests to execute
   setInterval(() => {

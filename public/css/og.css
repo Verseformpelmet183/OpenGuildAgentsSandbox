@@ -548,3 +548,16 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .vl-connect .vl-icon{color:#48c878}
 .vl-disconnect .vl-icon{color:#c84848}
 .vl-connect .vl-ip{color:var(--fg)}
+
+/* Dungeon */
+.dungeon-party{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.4rem 0}
+.dp-dm{display:flex;align-items:center;gap:.3rem;padding-right:.6rem;border-right:1px solid var(--border)}
+.dp-party{display:flex;gap:.4rem}
+.dp-member{display:flex;align-items:center;gap:.25rem}
+.dp-avatar{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.55rem;color:#fff;flex-shrink:0}
+.dp-info{line-height:1.1}
+.dp-name{font-size:.55rem;font-weight:500}
+.dp-class{font-size:.4rem;color:var(--dim)}
+.dp-scenario{font-size:.45rem;color:var(--dim);font-style:italic;margin-left:auto;max-width:200px;text-align:right}
+.msg-dm{background:rgba(200,164,78,.05);border-left:2px solid var(--accent);margin-left:0;padding-left:.3rem}
+.dm-tag{font-size:.45rem;background:var(--accent);color:var(--bg);padding:.05rem .25rem;border-radius:2px;font-weight:600;margin-right:.3rem}

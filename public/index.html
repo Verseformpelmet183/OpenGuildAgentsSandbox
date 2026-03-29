@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/css/og.css?t=1774788137">
+<link rel="stylesheet" href="/css/og.css?t=1774789942">
 <script>(function(){var s=localStorage.getItem('og-theme');if(s)document.documentElement.setAttribute('data-theme',s)})()</script>
 </head>
 <body>
@@ -30,6 +30,11 @@
     <a class="sb-item" data-view="guild-chat" onclick="switchView('guild-chat')">
       <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <span class="sb-label">Guild</span>
+    </a>
+
+    <a class="sb-item" data-view="dungeon" onclick="switchView('dungeon')">
+      <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span class="sb-label">Dungeon</span>
     </a>
 
     <!-- Guild -->
@@ -147,6 +152,14 @@
     <div class="view-header"></div>
     <div class="stats-row" id="agent-stats"></div>
     <div class="agents-grid" id="agents-grid">Loading...</div>
+  </div>
+
+  <!-- Dungeon -->
+  <div class="view" id="view-dungeon">
+    <div class="view-header">
+      <div class="dungeon-party" id="dungeon-party"></div>
+    </div>
+    <div class="chat-messages" id="dungeon-messages"></div>
   </div>
 
   <!-- Diary -->
@@ -329,7 +342,7 @@
 
 </main>
 
-<script src="/js/og.js?t=1774788434"></script>
+<script src="/js/og.js?t=1774789942"></script>
   <!-- Agent Detail Overlay -->
 </body>
 </html>

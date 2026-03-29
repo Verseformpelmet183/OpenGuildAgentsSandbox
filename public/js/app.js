@@ -97,7 +97,7 @@ window.toggleSidebar=function(){
 (function(){const s=localStorage.getItem('og-sidebar');if(s==='collapsed')document.getElementById('sidebar').classList.add('collapsed')})();
 
 // ── View switching ──
-const VIEW_TITLES={'world':'World','guild-chat':'Guild','agents':'Agents','diary':'Diary','brain':'Brain','predictions':'Predictions','quests':'Quests','tools':'Tools','skills':'Skills','settings':'Settings','profile':'Profile'};
+const VIEW_TITLES={'world':'World','guild-chat':'Guild','dungeon':'Dungeon','agents':'Agents','diary':'Diary','brain':'Brain','predictions':'Predictions','quests':'Quests','tools':'Tools','skills':'Skills','settings':'Settings','profile':'Profile'};
 
 window.switchView=function(view){
   currentView=view;
@@ -120,6 +120,7 @@ window.switchView=function(view){
 async function loadView(view){
   switch(view){
     case 'guild-chat':await loadGuildMessages();break;
+    case 'dungeon':await loadDungeon();break;
     case 'agents':await loadAgents();break;
     case 'diary':await loadDiary();break;
     case 'brain':await loadBrain();break;
@@ -216,6 +217,7 @@ function connectSSE(){
         case 'guild-chat':renderGuildMsg(payload);break;
         case 'guild-typing':renderGuildTyping(payload);break;
         case 'guild-typing-done':hideGuildTyping();break;
+        case 'dungeon-chat':renderDungeonMsg(payload);break;
         case 'visitors':{
           const el=document.getElementById('visitor-count');if(el)el.textContent=payload.count||0;
           renderVisitorLog(payload.log||[]);
@@ -985,6 +987,55 @@ async function loadPredictions(){
 }
 
 // ══════════════════════════════════
+// ══════════════════════════════════
+// DUNGEON
+// ══════════════════════════════════
+const dungeonMsEl=document.getElementById('dungeon-messages');
+
+async function loadDungeon(){
+  // Load state
+  const stateRes=await fetch('/api/dungeon/state');
+  const state=await stateRes.json();
+  
+  const partyEl=document.getElementById('dungeon-party');
+  if(partyEl&&state.dm){
+    const dmArch=state.dm;
+    const playersHtml=(state.players||[]).map(p=>{
+      const c=COLORS[p.id]||p.color||'#888';
+      const i=INITIALS[p.id]||p.avatar||'?';
+      return `<div class="dp-member"><div class="dp-avatar" style="background:${c}">${i}</div><div class="dp-info"><div class="dp-name" style="color:${c}">${esc(p.name||p.id)}</div><div class="dp-class">${esc(p.race||'')} ${esc(p.class||'')}</div></div></div>`;
+    }).join('');
+    partyEl.innerHTML=`
+      <div class="dp-dm"><div class="dp-avatar" style="background:${COLORS[dmArch.id]||dmArch.color||'#888'}">${INITIALS[dmArch.id]||dmArch.avatar||'?'}</div><div class="dp-info"><div class="dp-name" style="color:${COLORS[dmArch.id]||dmArch.color||'#888'}">DM: ${esc(dmArch.name||'')}</div><div class="dp-class">Dungeon Master</div></div></div>
+      <div class="dp-party">${playersHtml}</div>
+      <div class="dp-scenario">${esc((state.scenario||'').slice(0,100))}</div>`;
+  }
+
+  // Load messages
+  const msgRes=await fetch('/api/dungeon/messages?limit=50');
+  const msgs=await msgRes.json();
+  if(dungeonMsEl){
+    dungeonMsEl.innerHTML='';
+    msgs.forEach(m=>renderDungeonMsg(m));
+    dungeonMsEl.scrollTop=dungeonMsEl.scrollHeight;
+  }
+}
+
+function renderDungeonMsg(msg){
+  if(!dungeonMsEl)return;
+  const c=COLORS[msg.agent_id]||msg.agent_color||'#888';
+  const i=INITIALS[msg.agent_id]||msg.agent_avatar||'?';
+  const isDM=msg.role==='dm';
+  const roleTag=isDM?'<span class="dm-tag">DM</span>':'';
+  const time=msg.created_at?(new Date(msg.created_at+'Z')).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+  const div=document.createElement('div');
+  div.className=`msg ${isDM?'msg-dm':''}`;
+  div.id=`dmsg-${msg.id}`;
+  div.innerHTML=`<div class="mh"><div class="mv" style="background:${c}">${i}</div>${roleTag}<span class="mn" style="color:${c}">${esc(msg.agent_name||msg.agent_id)}</span><span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div>`;
+  dungeonMsEl.appendChild(div);
+  dungeonMsEl.scrollTop=dungeonMsEl.scrollHeight;
+}
+
 // GUILD CHAT
 // ══════════════════════════════════
 const guildMsEl=document.getElementById('ms-guild');
