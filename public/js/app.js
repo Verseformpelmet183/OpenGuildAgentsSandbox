@@ -413,12 +413,14 @@ function initBrainGraph(data){
     return{id:e.id,name:e.name,type:e.type,mentions:e.mention_count,
       x:w/2+Math.cos(angle)*r,y:h/2+Math.sin(angle)*r,
       vx:0,vy:0,r:Math.max(5,Math.min(14,e.mention_count*2)),
-      color:TYPE_COLORS[e.type]||'#888',isArtifact:false};
+      color:TYPE_COLORS[e.type]||'#888',isArtifact:false,
+      verified:e.verified||0,confidence:e.confidence||null};
   });
   brainEdges=data.connections.map(c=>({
     from:brainNodes.find(n=>n.name===c.from_name),
     to:brainNodes.find(n=>n.name===c.to_name),
-    rel:c.relation,strength:c.strength
+    rel:c.relation,strength:c.strength,
+    verified:c.verified||0
   })).filter(e=>e.from&&e.to);
 
   // Add artifact nodes (diamonds) — fetch separately
@@ -477,8 +479,9 @@ function brainDraw(){
   for(const e of brainEdges){
     brainCtx.beginPath();brainCtx.moveTo(e.from.x,e.from.y);brainCtx.lineTo(e.to.x,e.to.y);
     const isSelected=selectedNode&&(e.from===selectedNode||e.to===selectedNode);
-    brainCtx.strokeStyle=isSelected?e.from.color+'80':e.from.color+'20';
-    brainCtx.lineWidth=isSelected?Math.max(1,e.strength):Math.max(.5,e.strength*.5);
+    const isVerified=e.verified||false;
+    brainCtx.strokeStyle=isSelected?e.from.color+'80':isVerified?'#48c87860':e.from.color+'20';
+    brainCtx.lineWidth=isSelected?Math.max(1,e.strength):isVerified?Math.max(1.5,e.strength*1.5):Math.max(.5,e.strength*.5);
     brainCtx.stroke();
     if(zoom>.6){
       const mx=(e.from.x+e.to.x)/2,my=(e.from.y+e.to.y)/2;
@@ -510,7 +513,12 @@ function brainDraw(){
     brainCtx.fillText(n.name,n.x,n.y+n.r+12);
     if(isSel){
       brainCtx.fillStyle=dimColor;brainCtx.font='8px DM Mono';
-      brainCtx.fillText(n.type+' · ×'+n.mentions,n.x,n.y+n.r+22);
+      brainCtx.fillText(n.type+' · ×'+n.mentions+(n.verified?' ✓':''),n.x,n.y+n.r+22);
+    }
+    // Verified badge
+    if(n.verified&&!isSel){
+      brainCtx.fillStyle='#48c878';brainCtx.font='bold 8px DM Mono';brainCtx.textAlign='center';
+      brainCtx.fillText('✓',n.x+n.r+4,n.y-n.r+4);
     }
   }
 

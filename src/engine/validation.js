@@ -201,6 +201,11 @@ REASON: one sentence explaining your vote (stay in character)`;
   const statusEmoji = finalStatus === 'validated' ? '🟢' : finalStatus === 'rejected' ? '🔴' : '🟡';
   console.log(`[Validation] "${artifact.title}" → ${finalStatus} (${approvals} approve, ${rejections} reject, ${factsVerified}/${factsChecked} facts verified)`);
 
+  // Phase 4: Write verified facts into brain graph
+  if (factsVerified > 0) {
+    await ingestVerifiedFacts(verifications.filter(v => v.verified), artifact.title);
+  }
+
   // Announce result
   if (votes.length > 0) {
     const announcer = agentIds[0];
@@ -263,3 +268,72 @@ export function getArtifactValidations(artifactId) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Ingest verified facts into brain graph — boost entity/connection confidence
+async function ingestVerifiedFacts(verifiedFacts, artifactTitle) {
+  if (!verifiedFacts.length) return;
+
+  console.log(`[Validation] Ingesting ${verifiedFacts.length} verified facts into brain`);
+
+  for (const fact of verifiedFacts) {
+    // Ask Kimi to extract entities and connections from the verified claim
+    const extractResult = await callKimi(
+      `Extract entities and connections from this VERIFIED fact. Output EXACT format:
+ENTITY: name | type | description
+ENTITY: name | type | description
+CONNECTION: entity_a | relation | entity_b
+(types: person, org, country, event, concept, technology, region, policy)
+Only extract what's explicitly stated. No speculation.`,
+      `Verified claim: "${fact.claim}"\nSource: ${fact.sources?.join(', ') || 'web search'}\nConfidence: ${fact.confidence}`,
+      { maxTokens: 150, temperature: 0.2 }
+    );
+
+    if (!extractResult?.text) continue;
+
+    const lines = extractResult.text.split('\n');
+    for (const line of lines) {
+      const entityMatch = line.match(/^ENTITY:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i);
+      const connMatch = line.match(/^CONNECTION:\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+)/i);
+
+      if (entityMatch) {
+        const [, name, type, desc] = entityMatch;
+        // Upsert entity with verified flag
+        db.prepare(`
+          INSERT INTO brain_entities (name, type, description, verified, confidence)
+          VALUES (?, ?, ?, 1, ?)
+          ON CONFLICT(name) DO UPDATE SET
+            verified = 1,
+            confidence = ?,
+            description = COALESCE(?, description),
+            mention_count = mention_count + 1,
+            last_seen = datetime('now')
+        `).run(name.trim(), type.trim().toLowerCase(), desc.trim(), fact.confidence, fact.confidence, desc.trim());
+      }
+
+      if (connMatch) {
+        const [, entityA, relation, entityB] = connMatch;
+        const a = db.prepare('SELECT id FROM brain_entities WHERE name = ?').get(entityA.trim());
+        const b = db.prepare('SELECT id FROM brain_entities WHERE name = ?').get(entityB.trim());
+        if (a && b) {
+          // Check if connection exists
+          const existing = db.prepare(
+            'SELECT id, strength FROM brain_connections WHERE entity_a = ? AND entity_b = ? AND relation = ?'
+          ).get(a.id, b.id, relation.trim());
+
+          if (existing) {
+            // Boost strength + mark verified
+            db.prepare(
+              'UPDATE brain_connections SET strength = strength + 2.0, verified = 1, confidence = ?, source_url = ? WHERE id = ?'
+            ).run(fact.confidence, fact.sources?.[0] || null, existing.id);
+          } else {
+            // Create new verified connection with high initial strength
+            db.prepare(
+              'INSERT INTO brain_connections (entity_a, entity_b, relation, strength, verified, confidence, source_url) VALUES (?, ?, ?, 3.0, 1, ?, ?)'
+            ).run(a.id, b.id, relation.trim(), fact.confidence, fact.sources?.[0] || null);
+          }
+        }
+      }
+    }
+    await sleep(500);
+  }
+}
