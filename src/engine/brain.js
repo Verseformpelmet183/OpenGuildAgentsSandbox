@@ -162,17 +162,10 @@ export function getBrainArtifacts() {
 
 // ── Get full brain graph ──
 export function getBrainGraph() {
-  // Get scaffold first (Earth + continents), then top entities by mentions
-  const scaffold = db.prepare(
-    "SELECT * FROM brain_entities WHERE type IN ('planet','continent') ORDER BY mention_count DESC"
-  ).all();
-  const scaffoldIds = new Set(scaffold.map(e => e.id));
-  
-  const others = db.prepare(
-    "SELECT * FROM brain_entities WHERE type NOT IN ('planet','continent') ORDER BY mention_count DESC LIMIT 80"
+  const entities = db.prepare(
+    'SELECT * FROM brain_entities ORDER BY mention_count DESC LIMIT 80'
   ).all();
   
-  const entities = [...scaffold, ...others];
   const entityIds = new Set(entities.map(e => e.id));
 
   const connections = db.prepare(`
