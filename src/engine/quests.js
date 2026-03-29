@@ -2,6 +2,7 @@
 import db from '../db/database.js';
 import { callKimi } from './kimi.js';
 import { broadcast } from './discussion.js';
+import { webSearch, fetchPage, fetchWikipedia } from './tools.js';
 
 // Analyze brain for gaps, weak connections, unexplored entities
 function analyzeBrainGaps() {
@@ -61,82 +62,98 @@ export async function generateQuestsFromBrain() {
   const existing = db.prepare("SELECT title FROM quests WHERE status IN ('proposed','active') LIMIT 20").all();
   const existingTitles = existing.map(q => q.title).join('\n');
 
-  const context = `BRAIN ANALYSIS:
+  // ── Step 1: Identify the most interesting gap ──
+  let focusEntity = null;
+  let focusTopic = null;
 
-UNDEREXPLORED ENTITIES (mentioned often but few connections):
-${gaps.underconnected.slice(0, 8).map(e => `- ${e.name} (${e.type}, ${e.mention_count} mentions, only ${e.conn_count} connections)`).join('\n') || '(none)'}
+  if (gaps.underconnected.length) {
+    focusEntity = gaps.underconnected[Math.floor(Math.random() * Math.min(5, gaps.underconnected.length))];
+  }
+  if (gaps.hotTopics.length) {
+    focusTopic = gaps.hotTopics[Math.floor(Math.random() * Math.min(5, gaps.hotTopics.length))];
+  }
 
-HOT TOPICS:
-${gaps.hotTopics.map(t => `- ${t.name} (heat: ${t.heat})`).join('\n') || '(none)'}
+  const focusQuery = focusEntity?.name || focusTopic?.name || 'current world events';
+  console.log(`[Quests] Brain researching gap: "${focusQuery}"`);
 
-WEAK CONNECTIONS (need verification/strengthening):
-${gaps.weakConns.map(c => `- ${c.from_name} → ${c.relation} → ${c.to_name}`).join('\n') || '(none)'}
+  // ── Step 2: Web Search — find what's happening with this topic ──
+  const searchResults = await webSearch(focusQuery + ' latest news analysis 2025 2026');
+  let webContext = '';
+  const webSources = [];
 
-STRONG PATTERNS (worth deeper investigation):
-${gaps.strongConns.slice(0, 5).map(c => `- ${c.from_name} (${c.from_type}) ↔ ${c.to_name} (${c.to_type}) [${c.relation}, strength: ${c.strength}]`).join('\n') || '(none)'}
+  for (const r of searchResults.slice(0, 3)) {
+    const content = await fetchPage(r.url);
+    if (content.length > 200) {
+      webContext += `[${r.title}]: ${content.slice(0, 1000)}\n\n`;
+      webSources.push({ title: r.title, url: r.url });
+    }
+  }
 
-ENTITY TYPE DISTRIBUTION:
-${gaps.typeCounts.map(t => `- ${t.type}: ${t.count}`).join('\n')}
+  // ── Step 3: Wikipedia — get background context ──
+  let wikiContext = '';
+  if (focusEntity) {
+    const wikiContent = await fetchWikipedia(focusEntity.name);
+    if (wikiContent.length > 200) {
+      wikiContext = `WIKIPEDIA (${focusEntity.name}): ${wikiContent.slice(0, 1500)}`;
+    }
+  }
 
-UNPROCESSED NEWS ITEMS: ${gaps.unprocessedCount}
+  // ── Step 4: Generate quest based on actual research ──
+  const brainContext = `BRAIN GAPS:
+${gaps.underconnected.slice(0, 5).map(e => `- ${e.name} (${e.type}, ${e.mention_count} mentions, ${e.conn_count} connections)`).join('\n') || '(none)'}
 
-EXISTING ACTIVE QUESTS (avoid duplicates):
+HOT TOPICS: ${gaps.hotTopics.slice(0, 5).map(t => t.name).join(', ') || '(none)'}
+FOCUS: ${focusQuery}
+
+WEB RESEARCH FINDINGS:
+${webContext || '(no web results)'}
+
+${wikiContext}
+
+EXISTING QUESTS (avoid duplicates):
 ${existingTitles || '(none)'}`;
 
   const result = await callKimi(
-    `You are the OpenGuild Brain Curator. Create 2 focused research quests to grow the knowledge graph.
+    `You are the OpenGuild Brain Curator. Based on actual web research, create 1 specific research quest.
 
-Each quest MUST have:
-- A specific, measurable GOAL (so it's clear when it's done)
-- An OUTPUT specification: a structured .md file with sections for the brain to ingest
-- A clear SCOPE — what entities/connections to research
+You've just searched the web and Wikipedia about "${focusQuery}". Use what you found to create a HIGHLY SPECIFIC quest — not generic, name exact events, people, dates, policies.
 
-Quest types:
-1. RESEARCH — investigate an underexplored entity, produce a profile
-2. CONNECT — find hidden links between entities, produce a connection map
-3. DEEPEN — analyze a strong pattern, produce an analysis report
-
-Format (strict, no markdown):
-QUEST: <specific title>
+Format (strict):
+QUEST: <specific title with names and dates>
 TYPE: <research|connect|deepen>
-GOAL: <one sentence: what exactly must be discovered/proven/mapped>
-OUTPUT: <what the .md file must contain — sections, data points, connections>
-DESCRIPTION: <2-3 sentences context>
-PRIORITY: <low|normal|high|urgent>
----`,
-    context,
-    { maxTokens: 700, temperature: 0.75 }
+GOAL: <what exactly must be discovered>
+OUTPUT: <what the .md must contain>
+DESCRIPTION: <2-3 sentences — reference what you found in web search>
+PRIORITY: <normal|high|urgent>`,
+    brainContext,
+    { maxTokens: 300, temperature: 0.75 }
   );
 
   if (!result?.text) return [];
 
-  const quests = [];
-  const blocks = result.text.split('---').filter(b => b.trim());
+  const title = result.text.match(/QUEST:\s*(.+)/i)?.[1]?.trim();
+  const type = result.text.match(/TYPE:\s*(\S+)/i)?.[1]?.trim()?.toLowerCase() || 'research';
+  const goal = result.text.match(/GOAL:\s*(.+)/i)?.[1]?.trim() || '';
+  const output = result.text.match(/OUTPUT:\s*(.+)/i)?.[1]?.trim() || '';
+  const desc = result.text.match(/DESCRIPTION:\s*(.+)/is)?.[1]?.trim() || '';
+  const priority = result.text.match(/PRIORITY:\s*(\w+)/i)?.[1]?.trim()?.toLowerCase() || 'normal';
 
-  for (const block of blocks) {
-    const title = block.match(/QUEST:\s*(.+)/i)?.[1]?.trim();
-    const type = block.match(/TYPE:\s*(\S+)/i)?.[1]?.trim()?.toLowerCase() || 'research';
-    const goal = block.match(/GOAL:\s*(.+)/i)?.[1]?.trim() || '';
-    const output = block.match(/OUTPUT:\s*(.+)/i)?.[1]?.trim() || '';
-    const desc = block.match(/DESCRIPTION:\s*(.+)/is)?.[1]?.trim() || '';
-    const priority = block.match(/PRIORITY:\s*(\w+)/i)?.[1]?.trim()?.toLowerCase() || 'normal';
+  if (!title || existingTitles.includes(title)) return [];
 
-    if (title && !existingTitles.includes(title)) {
-      const fullDesc = `[${type}] ${desc}\n\nGOAL: ${goal}\n\nOUTPUT: ${output}`;
-      const info = db.prepare(
-        'INSERT INTO quests (title, description, priority, proposed_by, source, status) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(
-        title, fullDesc,
-        ['low','normal','high','urgent'].includes(priority) ? priority : 'normal',
-        'Brain', 'brain', 'proposed'
-      );
+  const fullDesc = `[${type}] ${desc}\n\nGOAL: ${goal}\n\nOUTPUT: ${output}\n\nSources used for quest creation:\n${webSources.map(s => `- [${s.title}](${s.url})`).join('\n')}`;
+  const info = db.prepare(
+    'INSERT INTO quests (title, description, priority, proposed_by, source, status) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(
+    title, fullDesc,
+    ['low','normal','high','urgent'].includes(priority) ? priority : 'normal',
+    'Brain', 'brain', 'proposed'
+  );
 
-      quests.push({ id: info.lastInsertRowid, title, description: fullDesc, type, goal, output, priority, proposed_by: 'Brain', status: 'proposed' });
-      console.log(`[Quests] Brain proposed: "${title}" (${type})`);
-    }
-  }
+  const quest = { id: info.lastInsertRowid, title, description: fullDesc, type, goal, output, priority, proposed_by: 'Brain', status: 'proposed' };
+  console.log(`[Quests] Brain proposed: "${title}" (${type}) — based on web research`);
+  broadcast('quest-proposed', quest);
 
-  return quests;
+  return [quest];
 }
 
 // Called during guild chat to propose a quest from discussion
