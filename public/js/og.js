@@ -1075,6 +1075,14 @@ function renderDungeonMsg(msg){
           }
         });
       });
+      // Update inventory
+      const invEl = document.getElementById('dungeon-inventory');
+      if (invEl && window.partyInventory) {
+        const inv = window.partyInventory();
+        const gold = window.partyGold ? window.partyGold() : 0;
+        invEl.innerHTML = `<div class="di-header">🪙 ${gold} gold · ${inv.length} items</div>` +
+          inv.slice(0, 8).map(i => `<div class="di-item">${i.emoji} <span class="di-name">${i.name}</span></div>`).join('');
+      }
     }, 500);
   }
 }
