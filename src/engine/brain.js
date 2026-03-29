@@ -102,7 +102,7 @@ function parseBrainResponse(response, newsItem) {
     const row = getEntity.get(e.name);
     if (row) {
       entityIds[e.name] = row.id;
-      linkNewsEntity.run(newsItem.id, row.id, e.role);
+      if (newsItem.id) linkNewsEntity.run(newsItem.id, row.id, e.role);
     }
   }
 
@@ -257,8 +257,8 @@ TOPIC: topic_name|description`;
 
   if (!response?.text) return;
 
-  // Reuse existing parseBrainResponse with a synthetic newsItem (id=-1 so it doesn't link to real news)
-  parseBrainResponse(response.text, { id: -1 });
+  // Reuse existing parseBrainResponse with a synthetic newsItem (id=null to skip news linking)
+  parseBrainResponse(response.text, { id: null });
 
   // Record artifact in brain_artifacts
   try {
