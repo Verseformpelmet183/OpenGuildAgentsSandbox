@@ -561,3 +561,7 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .dp-scenario{font-size:.45rem;color:var(--dim);font-style:italic;margin-left:auto;max-width:200px;text-align:right}
 .msg-dm{background:rgba(200,164,78,.05);border-left:2px solid var(--accent);margin-left:0;padding-left:.3rem}
 .dm-tag{font-size:.45rem;background:var(--accent);color:var(--bg);padding:.05rem .25rem;border-radius:2px;font-weight:600;margin-right:.3rem}
+.msg-discuss{opacity:.7;font-size:.85em}
+.msg-discuss .mb{font-style:italic}
+.msg-action{border-left:2px solid #48c878;padding-left:.3rem}
+.action-tag{font-size:.5rem;margin-right:.2rem}

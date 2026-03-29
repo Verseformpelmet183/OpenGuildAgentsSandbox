@@ -1026,10 +1026,13 @@ function renderDungeonMsg(msg){
   const c=COLORS[msg.agent_id]||msg.agent_color||'#888';
   const i=INITIALS[msg.agent_id]||msg.agent_avatar||'?';
   const isDM=msg.role==='dm';
-  const roleTag=isDM?'<span class="dm-tag">DM</span>':'';
+  const isDiscuss=msg.role==='discuss';
+  const isAction=msg.role==='action';
+  const roleTag=isDM?'<span class="dm-tag">DM</span>':isAction?'<span class="action-tag">⚔️</span>':'';
+  const msgClass=isDM?'msg-dm':isDiscuss?'msg-discuss':isAction?'msg-action':'';
   const time=msg.created_at?(new Date(msg.created_at+'Z')).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
   const div=document.createElement('div');
-  div.className=`msg ${isDM?'msg-dm':''}`;
+  div.className=`msg ${msgClass}`;
   div.id=`dmsg-${msg.id}`;
   div.innerHTML=`<div class="mh"><div class="mv" style="background:${c}">${i}</div>${roleTag}<span class="mn" style="color:${c}">${esc(msg.agent_name||msg.agent_id)}</span><span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div>`;
   dungeonMsEl.appendChild(div);

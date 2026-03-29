@@ -128,54 +128,84 @@ export async function dungeonTick() {
   const players = JSON.parse(state.active_players || '[]');
   if (!players.length) return;
 
-  const recentMsgs = getRecentMessages(12);
+  const recentMsgs = getRecentMessages(20);
   const conversation = recentMsgs.map(m => {
     const arch = archetypes.find(a => a.id === m.agent_id);
     const name = arch?.name || m.agent_id;
-    const tag = m.role === 'dm' ? '[DM]' : '[Player]';
+    const tag = m.role === 'dm' ? '[DM]' : m.role === 'discuss' ? '[Discuss]' : '[Action]';
     return `${tag} ${name}: ${m.content}`;
   }).join('\n');
 
-  // Pick next player (round-robin based on turn)
-  const playerIdx = state.turn % players.length;
-  const playerId = players[playerIdx];
-  const playerArch = archetypes.find(a => a.id === playerId);
-  const playerChar = CHARACTER_CLASSES[playerId] || { class: 'Adventurer', race: 'Human', trait: 'mysterious' };
+  const dmArch = archetypes.find(a => a.id === state.dm_id);
+  const partyNames = players.map(id => archetypes.find(a => a.id === id)?.name || id).join(', ');
 
-  // Player responds
-  const playerResponse = await callKimi(
-    `You are ${playerArch.name}, playing D&D as a ${playerChar.race} ${playerChar.class}.
-Your trait: ${playerChar.trait}
-Your personality: ${playerArch.personality}
+  // ── Phase 1: Party Discussion — each player says 1 short line ──
+  for (const playerId of players) {
+    const playerArch = archetypes.find(a => a.id === playerId);
+    const playerChar = CHARACTER_CLASSES[playerId] || { class: 'Adventurer', race: 'Human', trait: 'mysterious' };
 
-Stay in character. Respond to the DM's narration with:
-- What you DO (action, movement, interaction)
-- What you SAY (in-character dialogue)
-- Optional: a skill check or creative approach
+    const discuss = await callKimi(
+      `You are ${playerArch.name}, a ${playerChar.race} ${playerChar.class} in a D&D party.
+Trait: ${playerChar.trait}
 
-Keep it 2-3 sentences. Be creative and true to your character.`,
-    `ADVENTURE SO FAR:\n${conversation}`,
-    { maxTokens: 200, temperature: 0.9 }
-  );
+The party is discussing what to do next. Say ONE short line in-character.
+Talk TO the other party members (${partyNames}).
+Be brief — 1 sentence max. React to what others said or suggest a plan.`,
+      `ADVENTURE:\n${conversation}\n\n${getRecentMessages(5).filter(m=>m.role==='discuss').map(m=>`${archetypes.find(a=>a.id===m.agent_id)?.name}: ${m.content}`).join('\n')}`,
+      { maxTokens: 60, temperature: 0.95 }
+    );
 
-  if (playerResponse?.text) {
-    postDungeonMsg(playerId, playerResponse.text, 'player');
+    if (discuss?.text) {
+      postDungeonMsg(playerId, discuss.text, 'discuss');
+    }
+    await sleep(500);
   }
 
-  // DM responds to the player's action
-  const dmArch = archetypes.find(a => a.id === state.dm_id);
-  const updatedConversation = conversation + `\n[Player] ${playerArch.name}: ${playerResponse?.text || '...'}`;
+  // ── Phase 2: Each player declares their action + dice roll ──
+  for (const playerId of players) {
+    const playerArch = archetypes.find(a => a.id === playerId);
+    const playerChar = CHARACTER_CLASSES[playerId] || { class: 'Adventurer', race: 'Human', trait: 'mysterious' };
+
+    // Roll a d20
+    const roll = Math.floor(Math.random() * 20) + 1;
+    const rollResult = roll === 20 ? '🎲 NAT 20!' : roll === 1 ? '🎲 NAT 1...' : `🎲 ${roll}`;
+
+    const action = await callKimi(
+      `You are ${playerArch.name}, a ${playerChar.race} ${playerChar.class}.
+Trait: ${playerChar.trait}
+
+Declare your ACTION for this turn. 1-2 sentences.
+Your dice roll: ${roll}/20 ${roll >= 15 ? '(great success)' : roll >= 10 ? '(moderate success)' : roll >= 5 ? '(partial success)' : '(failure)'}
+Incorporate the roll result into your action description.`,
+      `ADVENTURE:\n${conversation}`,
+      { maxTokens: 80, temperature: 0.9 }
+    );
+
+    if (action?.text) {
+      postDungeonMsg(playerId, `${rollResult} — ${action.text}`, 'action');
+    }
+    await sleep(500);
+  }
+
+  // ── Phase 3: DM narrates the outcome ──
+  const fullConversation = getRecentMessages(20).map(m => {
+    const arch = archetypes.find(a => a.id === m.agent_id);
+    const tag = m.role === 'dm' ? '[DM]' : m.role === 'discuss' ? '[Discuss]' : '[Action]';
+    return `${tag} ${arch?.name || m.agent_id}: ${m.content}`;
+  }).join('\n');
 
   const dmResponse = await callKimi(
     `You are ${dmArch.name}, the Dungeon Master.
-Narrate what happens in response to the player's action.
-Include: consequences, environmental details, NPC reactions, or new developments.
-If appropriate, call for a dice roll (describe the DC and outcome).
-End with something that gives the NEXT player a hook to act.
+The party discussed and each player acted with a dice roll.
+Now narrate what happens. Be vivid, dramatic, concise.
+- Describe the consequences of EACH player's action
+- React to their dice rolls (nat 20 = epic, nat 1 = disaster)
+- Advance the story
+- End with a new situation that demands the party's attention
 
-Keep it 2-4 sentences. Be vivid but concise.`,
-    `SCENARIO: ${state.scenario}\n\nADVENTURE SO FAR:\n${updatedConversation}`,
-    { maxTokens: 250, temperature: 0.85 }
+3-5 sentences. Set the stage for the next round.`,
+    `SCENARIO: ${state.scenario}\n\n${fullConversation}`,
+    { maxTokens: 300, temperature: 0.85 }
   );
 
   if (dmResponse?.text) {
@@ -185,7 +215,7 @@ Keep it 2-4 sentences. Be vivid but concise.`,
   // Advance turn
   db.prepare('UPDATE dungeon_state SET turn = turn + 1, updated_at = CURRENT_TIMESTAMP WHERE id = 1').run();
 
-  return { player: playerId, dm: state.dm_id, turn: state.turn + 1 };
+  return { turn: state.turn + 1 };
 }
 
 // Get dungeon messages for API
