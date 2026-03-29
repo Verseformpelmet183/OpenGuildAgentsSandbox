@@ -12,6 +12,7 @@ import { backfillBrain } from './engine/brain.js';
 import { generateDailySummaries } from './engine/diary.js';
 import { guildTick } from './engine/guild-chat.js';
 import { generateQuestsFromBrain } from './engine/quests.js';
+import { generateWorldHistoryQuest } from './engine/quests.js';
 import { runNextQuest } from './engine/quest-runner.js';
 import { runPendingValidations } from './engine/validation.js';
 import { closeBrowser } from './engine/browser.js';
@@ -82,6 +83,17 @@ async function boot() {
       console.log(`[Quests] Generated ${quests.length} new quests`);
     } catch (err) { console.error('[Quests] Error:', err.message); }
   });
+
+  // World History quest every 15 minutes — explore history, build connections
+  cron.schedule('*/15 * * * *', async () => {
+    console.log('[Cron] Generating world history quest...');
+    try {
+      const quest = await generateWorldHistoryQuest();
+      if (quest) console.log(`[Quests] History: "${quest.title}"`);
+    } catch (err) { console.error('[Quests] History error:', err.message); }
+  });
+  setTimeout(() => generateWorldHistoryQuest().catch(err => console.error('[Quests]', err.message)), 45000);
+  console.log('✓ World History explorer active (every 15min)');
 
   // Start discussion engine
   startDiscussionLoop();

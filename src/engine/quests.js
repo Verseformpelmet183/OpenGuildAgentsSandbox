@@ -175,3 +175,113 @@ export function voteOnQuest(questId, vote) {
 export function getProposedQuests() {
   return db.prepare("SELECT * FROM quests WHERE status = 'proposed' ORDER BY created_at DESC LIMIT 5").all();
 }
+
+// ══════════════════════════════════
+// WORLD HISTORY QUEST GENERATOR
+// ══════════════════════════════════
+// Systematically explores world history — events, eras, connections, causes, consequences
+
+const HISTORY_DOMAINS = [
+  // Eras
+  'Ancient civilizations (Mesopotamia, Egypt, Indus, China)',
+  'Classical antiquity (Greece, Rome, Persia, Han Dynasty)',
+  'Medieval period (Byzantium, Islamic Golden Age, Feudal Europe, Mongol Empire)',
+  'Renaissance and Early Modern (1400-1700)',
+  'Age of Exploration and Colonialism',
+  'Industrial Revolution and 19th century transformations',
+  'World War I — causes, events, consequences',
+  'Interwar period — rise of fascism, communism, Great Depression',
+  'World War II — all theaters, Holocaust, atomic age',
+  'Cold War — proxy wars, space race, nuclear standoff',
+  'Decolonization of Africa and Asia',
+  'Late 20th century — fall of USSR, globalization, digital revolution',
+  '21st century geopolitics — War on Terror, Arab Spring, rise of China',
+  // Thematic
+  'History of democracy and political revolutions',
+  'History of science and technology breakthroughs',
+  'History of trade routes (Silk Road, spice trade, Atlantic trade)',
+  'History of religions and their spread',
+  'History of pandemics and their impact on civilization',
+  'History of art movements and cultural exchange',
+  'History of warfare and military strategy evolution',
+  'History of economic systems (feudalism → capitalism → globalization)',
+  'History of espionage and intelligence agencies',
+  'History of human rights movements',
+  'History of space exploration',
+  'History of philosophy — from Socrates to modern thought',
+  // Connections & Patterns
+  'How the fall of Rome shaped modern Europe',
+  'How the Mongol Empire connected East and West',
+  'How World War I caused World War II',
+  'How colonialism shapes current geopolitical conflicts',
+  'How the Cold War legacy affects today\'s world order',
+  'How the printing press changed civilization (parallel to internet)',
+  'How trade routes determined the rise and fall of empires',
+  'How climate events shaped history (Little Ice Age, droughts, floods)',
+];
+
+export async function generateWorldHistoryQuest() {
+  // Check what we've already researched
+  const existingTitles = db.prepare(
+    "SELECT title FROM quests WHERE source = 'world-history' ORDER BY created_at DESC LIMIT 50"
+  ).all().map(q => q.title);
+
+  // Check what entities we already have in the brain
+  const brainEntities = db.prepare(
+    "SELECT name, type FROM brain_entities WHERE type IN ('person','event','concept','country','org') ORDER BY mention_count DESC LIMIT 50"
+  ).all();
+  const brainContext = brainEntities.map(e => `${e.name} (${e.type})`).join(', ');
+
+  // Pick a random domain that hasn't been covered much
+  const shuffled = HISTORY_DOMAINS.sort(() => Math.random() - 0.5);
+  const domain = shuffled[0];
+
+  const result = await callKimi(
+    `You are the OpenGuild History Curator. Generate 1 focused world history research quest.
+
+DOMAIN: ${domain}
+
+ENTITIES ALREADY IN BRAIN (avoid duplicating what we know):
+${brainContext || 'none yet'}
+
+PREVIOUS HISTORY QUESTS (avoid duplicates):
+${existingTitles.slice(0, 15).join('\n') || 'none yet'}
+
+Create a quest that:
+1. Researches a SPECIFIC historical event, person, era, or connection
+2. Discovers entities (people, events, places, concepts) for the knowledge graph
+3. Maps connections between historical events and modern-day entities already in the brain
+4. Produces verifiable facts with dates and sources
+
+Format (strict):
+QUEST: <specific title — not generic, name specific events/people/dates>
+GOAL: <what exactly must be discovered and connected>
+OUTPUT: <what the .md file must contain>
+DESCRIPTION: <2-3 sentences context — why this matters for understanding the world>
+PRIORITY: normal`,
+    '', { maxTokens: 250, temperature: 0.85 }
+  );
+
+  if (!result?.text) return null;
+
+  const title = result.text.match(/QUEST:\s*(.+)/i)?.[1]?.trim();
+  const goal = result.text.match(/GOAL:\s*(.+)/i)?.[1]?.trim() || '';
+  const output = result.text.match(/OUTPUT:\s*(.+)/i)?.[1]?.trim() || '';
+  const desc = result.text.match(/DESCRIPTION:\s*(.+)/is)?.[1]?.trim() || '';
+  const priority = result.text.match(/PRIORITY:\s*(\w+)/i)?.[1]?.trim() || 'normal';
+
+  if (!title || existingTitles.includes(title)) return null;
+
+  const fullDesc = `[world-history] ${desc}\n\nGOAL: ${goal}\n\nOUTPUT: ${output}`;
+
+  const info = db.prepare(
+    'INSERT INTO quests (title, description, priority, proposed_by, source, status) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(title, fullDesc, priority, 'History Curator', 'world-history', 'proposed');
+
+  const quest = { id: info.lastInsertRowid, title, description: fullDesc, priority, proposed_by: 'History Curator', source: 'world-history', status: 'proposed' };
+
+  console.log(`[Quests] World History quest: "${title}"`);
+  broadcast('quest-proposed', quest);
+
+  return quest;
+}
