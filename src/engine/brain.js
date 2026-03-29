@@ -121,7 +121,7 @@ function parseBrainResponse(response, newsItem) {
       if (existing) {
         db.prepare('UPDATE brain_connections SET strength = strength + 0.5 WHERE id = ?').run(existing.id);
       } else {
-        insertConn.run(aId, bId, c.rel, newsItem.id);
+        insertConn.run(aId, bId, c.rel, newsItem.id || null);
       }
     }
   }
@@ -129,6 +129,7 @@ function parseBrainResponse(response, newsItem) {
   // Store topic
   if (topicData) {
     const entityIdList = Object.values(entityIds).join(',');
+    const newsId = newsItem.id ? String(newsItem.id) : '';
     db.prepare(`
       INSERT INTO brain_topics (name, description, entity_ids, news_ids, heat)
       VALUES (?, ?, ?, ?, 1.0)
@@ -137,7 +138,7 @@ function parseBrainResponse(response, newsItem) {
         news_ids = COALESCE(news_ids, '') || ',' || ?,
         heat = heat + 1.0,
         updated_at = datetime('now')
-    `).run(topicData.name, topicData.desc, entityIdList, String(newsItem.id), entityIdList, String(newsItem.id));
+    `).run(topicData.name, topicData.desc, entityIdList, newsId, entityIdList, newsId);
   }
 
   const eCnt = entities.length;
