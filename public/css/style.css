@@ -316,6 +316,16 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .ba-validate-btn{font-family:var(--mono);font-size:.6rem;padding:.35rem .7rem;border:1px solid var(--accent);border-radius:4px;background:transparent;color:var(--accent);cursor:pointer;transition:all .15s}
 .ba-validate-btn:hover{background:var(--accent);color:var(--bg)}
 
+/* Tool Attachments in Chat */
+.tool-attach{margin-top:.35rem;padding:.35rem .5rem;border-left:2px solid var(--accent);border-radius:0 4px 4px 0;background:var(--bg3);font-family:var(--mono);font-size:.55rem}
+.tool-skill-label{display:inline-block;padding:.1rem .3rem;border-radius:3px;background:rgba(200,164,78,.15);color:var(--accent);font-size:.45rem;text-transform:uppercase;letter-spacing:.06em;margin-right:.4rem}
+.tool-verdict{display:inline-block;padding:.1rem .3rem;border-radius:3px;font-size:.45rem;margin-right:.4rem}
+.tool-verdict-verified{background:rgba(72,200,120,.15);color:#48c878}
+.tool-verdict-unverified{background:rgba(200,80,80,.15);color:#c85050}
+.tool-sources{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.25rem}
+.tool-src-link{color:var(--accent);text-decoration:none;padding:.1rem .25rem;border-radius:3px;background:rgba(200,164,78,.08);font-size:.5rem;transition:background .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;display:inline-block}
+.tool-src-link:hover{background:rgba(200,164,78,.2);color:var(--text)}
+
 /* ══════════════════════════════════
    ARCHIVE VIEW
    ══════════════════════════════════ */

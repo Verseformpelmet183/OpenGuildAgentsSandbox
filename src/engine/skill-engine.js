@@ -28,33 +28,38 @@ export function detectSkillTrigger(message, recentMessages = []) {
   return null;
 }
 
-// Execute a skill for an agent — returns the skill's output text
+// Execute a skill for an agent — returns { text, toolData } where toolData has sources/search results
 export async function executeSkill(skill, agentId, context = {}) {
   const arch = archetypes.find(a => a.id === agentId);
   if (!arch) return null;
 
   console.log(`[Skills] ${arch.name} activating "${skill.name}"`);
 
+  let result;
   switch (skill.name) {
     case 'Deep Research':
-      return await runDeepResearch(arch, context);
+      result = await runDeepResearch(arch, context); break;
     case 'Deep Reflect':
-      return await runDeepReflect(arch, context);
+      result = await runDeepReflect(arch, context); break;
     case 'Fact Checker':
-      return await runFactChecker(arch, context);
+      result = await runFactChecker(arch, context); break;
     case 'Devil\'s Advocate':
-      return await runDevilsAdvocate(arch, context);
+      result = await runDevilsAdvocate(arch, context); break;
     case 'Connection Mapper':
-      return await runConnectionMapper(arch, context);
+      result = await runConnectionMapper(arch, context); break;
     case 'Trend Spotter':
-      return await runTrendSpotter(arch, context);
+      result = await runTrendSpotter(arch, context); break;
     case 'Source Analyzer':
-      return await runSourceAnalyzer(arch, context);
+      result = await runSourceAnalyzer(arch, context); break;
     case 'Summarizer':
-      return await runSummarizer(arch, context);
+      result = await runSummarizer(arch, context); break;
     default:
-      return await runGenericSkill(skill, arch, context);
+      result = await runGenericSkill(skill, arch, context);
   }
+
+  // Normalize return value — always { text, toolData }
+  if (typeof result === 'string') return { text: result, toolData: null };
+  return result || { text: null, toolData: null };
 }
 
 // ══════════════════════════════════
@@ -92,7 +97,7 @@ async function runDeepResearch(arch, ctx) {
     await sleep(800);
   }
 
-  if (!allFindings.length) return `I searched for "${topic}" but couldn't find substantial sources. Let me try a different angle later.`;
+  if (!allFindings.length) return { text: `I searched for "${topic}" but couldn't find substantial sources. Let me try a different angle later.`, toolData: { skill: 'Deep Research', query: topic, sources: [] } };
 
   const sourceSummary = allFindings.map((f, i) => `[${i+1}] ${f.title} (${f.url})\n${f.content}`).join('\n\n---\n\n');
 
@@ -113,7 +118,14 @@ Stay in character. Be thorough but concise (3-5 paragraphs max).`,
     { maxTokens: 500, temperature: 0.7 }
   );
 
-  return result?.text || null;
+  const toolData = {
+    skill: 'Deep Research',
+    query: topic,
+    queries,
+    sources: allFindings.map(f => ({ title: f.title, url: f.url }))
+  };
+
+  return { text: result?.text || null, toolData };
 }
 
 async function runDeepReflect(arch, ctx) {
@@ -165,7 +177,16 @@ Present this in 2-3 sentences. Include the verdict clearly.`,
     { maxTokens: 150, temperature: 0.6 }
   );
 
-  return result?.text ? `${verdictEmoji}${confEmoji} ${result.text}` : `${verdictEmoji} ${verification.reasoning}`;
+  const toolData = {
+    skill: 'Fact Checker',
+    claim,
+    verdict: verification.verified ? 'verified' : 'unverified',
+    confidence: verification.confidence,
+    sources: verification.sources.map(url => ({ url })),
+    reasoning: verification.reasoning
+  };
+
+  return { text: result?.text ? `${verdictEmoji}${confEmoji} ${result.text}` : `${verdictEmoji} ${verification.reasoning}`, toolData };
 }
 
 async function runDevilsAdvocate(arch, ctx) {
@@ -251,7 +272,14 @@ Present your connection map in 3-4 sentences. Identify the most interesting or s
     { maxTokens: 250, temperature: 0.7 }
   );
 
-  return result?.text || null;
+  const toolData = {
+    skill: 'Connection Mapper',
+    query: topic,
+    brainEntities: brainEntities.map(e => ({ name: e.name, type: e.type })),
+    sources: searchResults.slice(0, 3).map(r => ({ title: r.title, url: r.url }))
+  };
+
+  return { text: result?.text || null, toolData };
 }
 
 async function runTrendSpotter(arch, ctx) {
@@ -315,7 +343,13 @@ Format: RELIABILITY | BIAS | key strengths and weaknesses. 3-4 sentences.`,
     { maxTokens: 250, temperature: 0.6 }
   );
 
-  return result?.text || null;
+  const toolData = {
+    skill: 'Source Analyzer',
+    source,
+    sources: [...searchResults.slice(0, 3).map(r => ({ title: r.title, url: r.url })), ...wikiResults.slice(0, 1).map(r => ({ title: r.title, url: r.url }))]
+  };
+
+  return { text: result?.text || null, toolData };
 }
 
 async function runSummarizer(arch, ctx) {

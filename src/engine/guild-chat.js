@@ -30,13 +30,13 @@ function formatHistory(messages) {
   }).join('\n');
 }
 
-function postGuildMessage(agentId, content, tokensIn = 0, tokensOut = 0) {
+function postGuildMessage(agentId, content, tokensIn = 0, tokensOut = 0, toolData = null) {
   const arch = getArchetype(agentId);
   const stmt = db.prepare(`
-    INSERT INTO guild_messages (agent_id, content, tokens_in, tokens_out)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO guild_messages (agent_id, content, tokens_in, tokens_out, tool_data)
+    VALUES (?, ?, ?, ?, ?)
   `);
-  const info = stmt.run(agentId, content, tokensIn, tokensOut);
+  const info = stmt.run(agentId, content, tokensIn, tokensOut, toolData ? JSON.stringify(toolData) : null);
 
   db.prepare(`UPDATE agent_states SET last_spoke_at = datetime('now') WHERE agent_id = ?`).run(agentId);
   spendEnergy(agentId, content.length, 0.5); // guild = half energy cost
@@ -51,6 +51,7 @@ function postGuildMessage(agentId, content, tokensIn = 0, tokensOut = 0) {
     agent_avatar: arch?.avatar || '?',
     tokens_in: tokensIn,
     tokens_out: tokensOut,
+    tool_data: toolData,
     created_at: new Date().toISOString(),
     is_user: false
   };
@@ -163,15 +164,14 @@ Continue the conversation naturally (1-3 sentences). You must respond to what wa
     // 20% chance to activate a skill instead of normal chat
     const shouldUseSkill = Math.random() < 0.20;
     let responseText = null;
+    let responseToolData = null;
 
     if (shouldUseSkill && recent.length >= 5) {
-      // Pick a random enabled skill weighted by context
       const skills = getEnabledSkills();
       if (skills.length) {
         const skill = skills[Math.floor(Math.random() * skills.length)];
         console.log(`[GuildChat] ${arch.name} activating skill: ${skill.name}`);
 
-        // Build context for skill execution
         const lastMsg = recent[recent.length - 1];
         const skillContext = {
           message: lastMsg?.content || '',
@@ -186,10 +186,9 @@ Continue the conversation naturally (1-3 sentences). You must respond to what wa
 
         try {
           const skillOutput = await executeSkill(skill, speaker.agent_id, skillContext);
-          if (skillOutput) {
-            responseText = skillOutput.trim();
-            // Prefix with skill badge
-            responseText = `⚡ [${skill.name}] ${responseText}`;
+          if (skillOutput?.text) {
+            responseText = `⚡ [${skill.name}] ${skillOutput.text.trim()}`;
+            responseToolData = skillOutput.toolData || null;
           }
         } catch (e) {
           console.error(`[GuildChat] Skill execution error:`, e.message);
@@ -207,7 +206,7 @@ Continue the conversation naturally (1-3 sentences). You must respond to what wa
     await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000));
 
     broadcast('guild-typing-done', {});
-    postGuildMessage(speaker.agent_id, responseText, 0, 0);
+    postGuildMessage(speaker.agent_id, responseText, 0, 0, responseToolData);
 
   } catch (err) {
     console.error('[GuildChat] tick error:', err.message);
@@ -222,13 +221,16 @@ export function getGuildMessages(limit = 50) {
   return rows.map(m => {
     const arch = getArchetype(m.agent_id);
     const isUser = m.agent_id?.startsWith('user:');
+    let parsedToolData = null;
+    try { if (m.tool_data) parsedToolData = JSON.parse(m.tool_data); } catch(e) {}
     return {
       ...m,
       agent_name: isUser ? m.agent_id.slice(5) : (arch?.name || m.agent_id),
       agent_title: isUser ? 'Human' : (arch?.title || ''),
       agent_color: isUser ? '#c8a44e' : (arch?.color || '#888'),
       agent_avatar: isUser ? '👤' : (arch?.avatar || '?'),
-      is_user: false
+      is_user: false,
+      tool_data: parsedToolData
     };
   });
 }

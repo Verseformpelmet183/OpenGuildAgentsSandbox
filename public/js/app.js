@@ -699,7 +699,18 @@ function renderGuildMsg(msg){
   const tokIn=msg.tokens_in||0,tokOut=msg.tokens_out||0;
   const tokHtml=(tokIn||tokOut)?`<span class="msg-tokens">${tokIn}→${tokOut}tk</span>`:'';
   const avatarHtml=`<div class="mv" style="background:${c}">${i}</div>`;
-  addGuildEl(`<div class="msg" id="gmsg-${msg.id}"><div class="mh">${avatarHtml}<span class="mn" style="color:${c}">${esc(msg.agent_name||msg.agent_id)}</span>${tokHtml}<span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div></div>`);
+
+  // Render tool_data attachment (sources, search results)
+  let toolHtml='';
+  const td=msg.tool_data;
+  if(td&&td.sources&&td.sources.length){
+    const srcLinks=td.sources.map(s=>`<a href="${esc(s.url||'#')}" target="_blank" class="tool-src-link">${esc(s.title||s.url||'source')}</a>`).join('');
+    const skillLabel=td.skill?`<span class="tool-skill-label">${esc(td.skill)}</span>`:'';
+    const verdictHtml=td.verdict?`<span class="tool-verdict tool-verdict-${td.verdict}">${td.verdict}${td.confidence?' ('+td.confidence+')':''}</span>`:'';
+    toolHtml=`<div class="tool-attach">${skillLabel}${verdictHtml}<div class="tool-sources">${srcLinks}</div></div>`;
+  }
+
+  addGuildEl(`<div class="msg" id="gmsg-${msg.id}"><div class="mh">${avatarHtml}<span class="mn" style="color:${c}">${esc(msg.agent_name||msg.agent_id)}</span>${tokHtml}<span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div>${toolHtml}</div>`);
 }
 
 function renderGuildTyping(data){
