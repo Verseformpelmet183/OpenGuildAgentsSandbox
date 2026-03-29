@@ -208,7 +208,7 @@ export function getEntityConnections(entityName) {
 }
 
 // ── Ingest quest output .md into brain ──
-export async function ingestQuestOutput(filepath, questId = null) {
+export async function ingestQuestOutput(filepath, questId = null, agentIdsList = null) {
   const { readFileSync, existsSync } = await import('fs');
   const { basename } = await import('path');
 
@@ -224,9 +224,9 @@ export async function ingestQuestOutput(filepath, questId = null) {
   const titleMatch = content.match(/^#\s+(.+)/m);
   const title = titleMatch ? titleMatch[1].trim() : filename.replace(/\.md$/i, '');
 
-  // Collect agent_ids from quest if available
-  let agentIds = '';
-  if (questId) {
+  // Collect agent_ids
+  let agentIds = agentIdsList || '';
+  if (!agentIds && questId) {
     const quest = db.prepare('SELECT assigned_agents, proposed_by FROM quests WHERE id = ?').get(questId);
     if (quest) {
       agentIds = quest.assigned_agents || quest.proposed_by || '';

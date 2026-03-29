@@ -220,8 +220,9 @@ Generate a .md file with these sections:
     writeFileSync(filepath, mdContent, 'utf8');
     console.log(`[QuestRunner] Output saved: ${filepath}`);
 
-    // Ingest into brain
-    try { await ingestQuestOutput(filepath); } catch (e) { console.error('[QuestRunner] Brain ingest error:', e.message); }
+    // Ingest into brain — pass questId + participating agent IDs
+    const agentIdsList = [lead.agent_id, ...supporters.map(s => s.agent_id)].join(',');
+    try { await ingestQuestOutput(filepath, questId, agentIdsList); } catch (e) { console.error('[QuestRunner] Brain ingest error:', e.message); }
 
     // Phase 7: Mark quest completed
     db.prepare("UPDATE quests SET status = 'completed', completed_at = datetime('now') WHERE id = ?").run(questId);
