@@ -325,6 +325,14 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .tool-sources{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.25rem}
 .tool-src-link{color:var(--accent);text-decoration:none;padding:.1rem .25rem;border-radius:3px;background:rgba(200,164,78,.08);font-size:.5rem;transition:background .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;display:inline-block}
 .tool-src-link:hover{background:rgba(200,164,78,.2);color:var(--text)}
+.tool-queries{display:flex;flex-wrap:wrap;gap:.2rem;margin-bottom:.2rem}
+.tool-query{font-size:.48rem;color:var(--dim);padding:.1rem .2rem;border-radius:3px;background:var(--bg)}
+.tool-entities{display:flex;flex-wrap:wrap;gap:.2rem;margin-top:.2rem}
+.tool-entity{font-size:.5rem;padding:.1rem .3rem;border-radius:3px;background:rgba(80,128,200,.1);color:#5080c8}
+.tool-entity small{color:var(--dim)}
+.tool-cmd{margin-top:.2rem}
+.tool-cmd code{font-family:var(--mono);font-size:.48rem;color:var(--accent);background:var(--bg);padding:.15rem .3rem;border-radius:3px}
+.tool-path{font-family:var(--mono);font-size:.48rem;color:var(--dim);margin-top:.15rem}
 
 /* ══════════════════════════════════
    ARCHIVE VIEW

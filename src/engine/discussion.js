@@ -164,14 +164,15 @@ function cleanOutput(text) {
 }
 
 // ── Post message (broadcast as "chat") ───────────────
-function postMessage(agentId, content, newsItem = null, tokens = null) {
+function postMessage(agentId, content, newsItem = null, tokens = null, toolData = null) {
   content = cleanOutput(content);
   const newsContext = newsItem?.title || null;
   const tokIn = tokens?.input || 0;
   const tokOut = tokens?.output || 0;
+  const toolDataStr = toolData ? JSON.stringify(toolData) : null;
   const result = db.prepare(
-    'INSERT INTO messages (agent_id, content, news_context, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?)'
-  ).run(agentId, content, newsContext, tokIn, tokOut);
+    'INSERT INTO messages (agent_id, content, news_context, tokens_in, tokens_out, tool_data) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(agentId, content, newsContext, tokIn, tokOut, toolDataStr);
 
   spendEnergy(agentId, content.length, 1.0);
 
@@ -189,6 +190,7 @@ function postMessage(agentId, content, newsItem = null, tokens = null) {
     news_source: newsItem?.feed_source || null,
     tokens_in: tokIn,
     tokens_out: tokOut,
+    tool_data: toolData,
     created_at: new Date().toISOString()
   });
 }
@@ -574,7 +576,7 @@ Use skills sparingly (~25%) — only when genuinely useful.`,
               const skillOutput = await executeSkill(chosenSkill, speaker.agent_id, skillCtx);
               if (skillOutput?.text) {
                 const skillText = `⚡ [${chosenSkill.name}] ${skillOutput.text.trim()}`;
-                postMessage(speaker.agent_id, skillText, newsItem, null);
+                postMessage(speaker.agent_id, skillText, newsItem, null, skillOutput.toolData || null);
                 skillUsed = true;
               }
             } catch (e) { console.error(`[Engine] Skill error:`, e.message); }

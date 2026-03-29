@@ -92,6 +92,8 @@ router.get('/messages', (req, res) => {
     }
     const isUser = m.agent_id?.startsWith('user:');
     const userName = isUser ? m.agent_id.slice(5) : null;
+    let parsedToolData = null;
+    try { if (m.tool_data) parsedToolData = JSON.parse(m.tool_data); } catch(e) {}
     return {
       ...m,
       agent_name: userName || arch?.name || m.agent_id,
@@ -100,7 +102,8 @@ router.get('/messages', (req, res) => {
       is_user: isUser,
       agent_title: arch?.title || '',
       news_link,
-      news_source
+      news_source,
+      tool_data: parsedToolData
     };
   });
   

@@ -29,6 +29,49 @@ function esc(t){if(!t)return'';const d=document.createElement('div');d.textConte
 function fmtTime(iso){if(!iso)return'';const d=new Date(iso.includes('T')?iso:iso+'Z');return d.toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
 function fmtDate(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
 function agColor(id){if(id?.startsWith('user:'))return'#c8a44e';return COLORS[id]||'#888'}
+
+// ── Shared tool attachment renderer ──
+function renderToolAttach(td){
+  if(!td) return '';
+  // Parse string JSON if needed
+  if(typeof td==='string'){try{td=JSON.parse(td)}catch{return ''}}
+
+  let parts=[];
+
+  // Skill/tool label
+  if(td.skill) parts.push(`<span class="tool-skill-label">${esc(td.skill)}</span>`);
+  if(td.tool) parts.push(`<span class="tool-skill-label">${esc(td.tool)}</span>`);
+
+  // Verdict badge (fact checker)
+  if(td.verdict) parts.push(`<span class="tool-verdict tool-verdict-${td.verdict}">${td.verdict}${td.confidence?' ('+td.confidence+')':''}</span>`);
+
+  // Search queries
+  if(td.queries&&td.queries.length) parts.push(`<div class="tool-queries">${td.queries.map(q=>`<span class="tool-query">🔍 ${esc(q)}</span>`).join('')}</div>`);
+
+  // Sources / links
+  if(td.sources&&td.sources.length){
+    const srcLinks=td.sources.map(s=>{
+      const url=s.url||s;
+      const title=s.title||url;
+      return typeof url==='string'&&url.startsWith('http')?`<a href="${esc(url)}" target="_blank" class="tool-src-link">${esc(typeof title==='string'?title.slice(0,60):url)}</a>`:`<span class="tool-src-link">${esc(title)}</span>`;
+    }).join('');
+    parts.push(`<div class="tool-sources">${srcLinks}</div>`);
+  }
+
+  // Brain entities
+  if(td.brainEntities&&td.brainEntities.length){
+    parts.push(`<div class="tool-entities">${td.brainEntities.map(e=>`<span class="tool-entity">${esc(e.name)} <small>(${esc(e.type)})</small></span>`).join('')}</div>`);
+  }
+
+  // Command output (exec)
+  if(td.command) parts.push(`<div class="tool-cmd"><code>$ ${esc(td.command)}</code></div>`);
+
+  // File path
+  if(td.path) parts.push(`<div class="tool-path">📄 ${esc(td.path)}</div>`);
+
+  if(!parts.length) return '';
+  return `<div class="tool-attach">${parts.join('')}</div>`;
+}
 function agInitial(id){if(id?.startsWith('user:'))return id.slice(5,6).toUpperCase()||'U';return INITIALS[id]||'?'}
 
 // ── Theme ──
@@ -114,7 +157,8 @@ function renderMsg(msg){
   const tokIn=msg.tokens_in||0,tokOut=msg.tokens_out||0;
   const tokHtml=(tokIn||tokOut)?`<span class="msg-tokens">${tokIn}→${tokOut}tk</span>`:'';
   const avatarHtml=`<div class="mv" style="background:${c}">${i}</div>`;
-  addEl(`<div class="msg" id="msg-${msg.id}"><div class="mh">${avatarHtml}<span class="mn" style="color:${c}">${esc(msg.agent_name)}</span>${tokHtml}<span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div>${srcHtml}</div>`);
+  const toolHtml=renderToolAttach(msg.tool_data);
+  addEl(`<div class="msg" id="msg-${msg.id}"><div class="mh">${avatarHtml}<span class="mn" style="color:${c}">${esc(msg.agent_name)}</span>${tokHtml}<span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div>${toolHtml}${srcHtml}</div>`);
 }
 
 function renderNews(news){
@@ -707,17 +751,7 @@ function renderGuildMsg(msg){
   const tokIn=msg.tokens_in||0,tokOut=msg.tokens_out||0;
   const tokHtml=(tokIn||tokOut)?`<span class="msg-tokens">${tokIn}→${tokOut}tk</span>`:'';
   const avatarHtml=`<div class="mv" style="background:${c}">${i}</div>`;
-
-  // Render tool_data attachment (sources, search results)
-  let toolHtml='';
-  const td=msg.tool_data;
-  if(td&&td.sources&&td.sources.length){
-    const srcLinks=td.sources.map(s=>`<a href="${esc(s.url||'#')}" target="_blank" class="tool-src-link">${esc(s.title||s.url||'source')}</a>`).join('');
-    const skillLabel=td.skill?`<span class="tool-skill-label">${esc(td.skill)}</span>`:'';
-    const verdictHtml=td.verdict?`<span class="tool-verdict tool-verdict-${td.verdict}">${td.verdict}${td.confidence?' ('+td.confidence+')':''}</span>`:'';
-    toolHtml=`<div class="tool-attach">${skillLabel}${verdictHtml}<div class="tool-sources">${srcLinks}</div></div>`;
-  }
-
+  const toolHtml=renderToolAttach(msg.tool_data);
   addGuildEl(`<div class="msg" id="gmsg-${msg.id}"><div class="mh">${avatarHtml}<span class="mn" style="color:${c}">${esc(msg.agent_name||msg.agent_id)}</span>${tokHtml}<span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div>${toolHtml}</div>`);
 }
 
