@@ -133,7 +133,7 @@ export async function dungeonTick() {
     const ch = CHARACTER_CLASSES[playerId] || {};
 
     const discuss = await callKimi(
-      `D&D. You are ${arch.name} (${ch.class}). Say 1 SHORT line to the party. Max 10 words. In-character.`,
+      `D&D. You are ${arch.name} (${ch.class}). Talk to the party about what to do. Max 10 words. Stay in character.`,
       conversation,
       { maxTokens: 25, temperature: 1.0 }
     );
@@ -149,7 +149,7 @@ export async function dungeonTick() {
     const rollStr = roll === 20 ? '🎲 NAT 20!' : roll === 1 ? '🎲 NAT 1...' : `🎲 ${roll}`;
 
     const action = await callKimi(
-      `D&D action. You are ${arch.name} (${ch.class}). Roll: ${roll}/20. Describe your action in 1 sentence.`,
+      `D&D. ${arch.name} (${ch.class}). Roll: ${roll}/20. What do you do? Attack, cast spell, search, sneak, or talk? 1 sentence, in-character.`,
       conversation,
       { maxTokens: 30, temperature: 0.9 }
     );
@@ -157,15 +157,15 @@ export async function dungeonTick() {
     await sleep(300);
   }
 
-  // ── Phase 3: DM — 2-3 sentences max ──
+  // ── Phase 3: DM — 2-3 sentences, must include combat or exploration ──
   const fullConv = getRecentMessages(12).map(m => {
     const name = archetypes.find(a => a.id === m.agent_id)?.name || m.agent_id;
     return `${name}[${m.role}]: ${m.content}`;
   }).join('\n');
 
   const dmResponse = await callKimi(
-    `D&D DM. You are ${dmArch.name}. Narrate consequences of all actions. 2-3 sentences. Dramatic, concise. End with a new threat or choice.`,
-    `Scenario: ${state.scenario}\n${fullConv}`,
+    `D&D DM. You are ${dmArch.name}. Narrate consequences. Include: combat results, movement, discoveries, or enemy encounters. Every 2-3 rounds introduce a new monster or trap. 2-3 sentences. Dramatic.`,
+    `Scenario: ${state.scenario}\nTurn: ${state.turn}\n${fullConv}`,
     { maxTokens: 100, temperature: 0.85 }
   );
   if (dmResponse?.text) postDungeonMsg(state.dm_id, dmResponse.text, 'dm');
