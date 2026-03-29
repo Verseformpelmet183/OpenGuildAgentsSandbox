@@ -993,26 +993,41 @@ async function loadPredictions(){
 const dungeonMsEl=document.getElementById('dungeon-messages');
 
 async function loadDungeon(){
-  // Load state
   const stateRes=await fetch('/api/dungeon/state');
   const state=await stateRes.json();
-  
-  const partyEl=document.getElementById('dungeon-party');
-  if(partyEl&&state.dm){
+
+  // Init 2D map
+  if(window.initDungeonMap) window.initDungeonMap(state);
+
+  // Render party stats sidebar
+  const statsEl=document.getElementById('dungeon-party-stats');
+  if(statsEl&&state.players){
     const dmArch=state.dm;
-    const playersHtml=(state.players||[]).map(p=>{
-      const c=COLORS[p.id]||p.color||'#888';
-      const i=INITIALS[p.id]||p.avatar||'?';
-      return `<div class="dp-member"><div class="dp-avatar" style="background:${c}">${i}</div><div class="dp-info"><div class="dp-name" style="color:${c}">${esc(p.name||p.id)}</div><div class="dp-class">${esc(p.race||'')} ${esc(p.class||'')}</div></div></div>`;
-    }).join('');
-    partyEl.innerHTML=`
-      <div class="dp-dm"><div class="dp-avatar" style="background:${COLORS[dmArch.id]||dmArch.color||'#888'}">${INITIALS[dmArch.id]||dmArch.avatar||'?'}</div><div class="dp-info"><div class="dp-name" style="color:${COLORS[dmArch.id]||dmArch.color||'#888'}">DM: ${esc(dmArch.name||'')}</div><div class="dp-class">Dungeon Master</div></div></div>
-      <div class="dp-party">${playersHtml}</div>
-      <div class="dp-scenario">${esc((state.scenario||'').slice(0,100))}</div>`;
+    statsEl.innerHTML=`
+      <div class="ds-dm">
+        <div class="ds-avatar" style="background:${COLORS[dmArch.id]||dmArch.color||'#888'}">${INITIALS[dmArch.id]||dmArch.avatar||'?'}</div>
+        <div class="ds-info"><span class="ds-name" style="color:${COLORS[dmArch.id]||'#888'}">DM: ${esc(dmArch.name||'')}</span></div>
+      </div>
+      <div class="ds-scenario">${esc(state.scenario||'')}</div>
+      ${(state.players||[]).map(p=>{
+        const c=COLORS[p.id]||p.color||'#888';
+        const i=INITIALS[p.id]||p.avatar||'?';
+        return `<div class="ds-player">
+          <div class="ds-avatar" style="background:${c}">${i}</div>
+          <div class="ds-info">
+            <div class="ds-name" style="color:${c}">${esc(p.name||p.id)}</div>
+            <div class="ds-class">${esc(p.race||'')} ${esc(p.class||'')}</div>
+            <div class="ds-bars">
+              <div class="ds-bar"><div class="ds-bar-fill ds-hp" style="width:100%"></div></div>
+              <div class="ds-bar"><div class="ds-bar-fill ds-mp" style="width:100%"></div></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}`;
   }
 
-  // Load messages
-  const msgRes=await fetch('/api/dungeon/messages?limit=50');
+  // Load messages into log
+  const msgRes=await fetch('/api/dungeon/messages?limit=30');
   const msgs=await msgRes.json();
   if(dungeonMsEl){
     dungeonMsEl.innerHTML='';
@@ -1024,19 +1039,25 @@ async function loadDungeon(){
 function renderDungeonMsg(msg){
   if(!dungeonMsEl)return;
   const c=COLORS[msg.agent_id]||msg.agent_color||'#888';
-  const i=INITIALS[msg.agent_id]||msg.agent_avatar||'?';
   const isDM=msg.role==='dm';
-  const isDiscuss=msg.role==='discuss';
   const isAction=msg.role==='action';
-  const roleTag=isDM?'<span class="dm-tag">DM</span>':isAction?'<span class="action-tag">⚔️</span>':'';
-  const msgClass=isDM?'msg-dm':isDiscuss?'msg-discuss':isAction?'msg-action':'';
+  const isDiscuss=msg.role==='discuss';
+  const roleIcon=isDM?'🏰':isAction?'⚔️':'💬';
   const time=msg.created_at?(new Date(msg.created_at+'Z')).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
   const div=document.createElement('div');
-  div.className=`msg ${msgClass}`;
-  div.id=`dmsg-${msg.id}`;
-  div.innerHTML=`<div class="mh"><div class="mv" style="background:${c}">${i}</div>${roleTag}<span class="mn" style="color:${c}">${esc(msg.agent_name||msg.agent_id)}</span><span class="mt">${time}</span></div><div class="mb">${esc(msg.content)}</div>`;
+  div.className=`dl-entry dl-${msg.role||'player'}`;
+  div.innerHTML=`<span class="dl-icon">${roleIcon}</span><span class="dl-name" style="color:${c}">${esc(msg.agent_name||msg.agent_id)}</span><span class="dl-text">${esc(msg.content.slice(0,120))}</span><span class="dl-time">${time}</span>`;
   dungeonMsEl.appendChild(div);
   dungeonMsEl.scrollTop=dungeonMsEl.scrollHeight;
+
+  // DM narration goes to narrator box
+  if(isDM){
+    const narrator=document.getElementById('dungeon-narrator');
+    if(narrator)narrator.textContent=msg.content;
+  }
+
+  // Trigger map animation
+  if(window.handleDungeonAction) window.handleDungeonAction(msg);
 }
 
 // GUILD CHAT

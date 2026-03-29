@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/css/og.css?t=1774790357">
+<link rel="stylesheet" href="/css/og.css?t=1774790632">
 <script>(function(){var s=localStorage.getItem('og-theme');if(s)document.documentElement.setAttribute('data-theme',s)})()</script>
 </head>
 <body>
@@ -156,10 +156,16 @@
 
   <!-- Dungeon -->
   <div class="view" id="view-dungeon">
-    <div class="view-header">
-      <div class="dungeon-party" id="dungeon-party"></div>
+    <div class="dungeon-wrap">
+      <div class="dungeon-map-container">
+        <canvas id="dungeon-canvas"></canvas>
+        <div class="dungeon-narrator" id="dungeon-narrator"></div>
+      </div>
+      <div class="dungeon-sidebar">
+        <div class="dungeon-party-stats" id="dungeon-party-stats"></div>
+        <div class="dungeon-log" id="dungeon-messages"></div>
+      </div>
     </div>
-    <div class="ms" id="dungeon-messages"></div>
   </div>
 
   <!-- Diary -->
@@ -342,7 +348,8 @@
 
 </main>
 
-<script src="/js/og.js?t=1774790357"></script>
+<script src="/js/dungeon-map.js"></script>
+<script src="/js/og.js?t=1774790632"></script>
   <!-- Agent Detail Overlay -->
 </body>
 </html>
