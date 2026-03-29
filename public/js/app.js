@@ -216,6 +216,7 @@ function connectSSE(){
         case 'guild-chat':renderGuildMsg(payload);break;
         case 'guild-typing':renderGuildTyping(payload);break;
         case 'guild-typing-done':hideGuildTyping();break;
+        case 'visitors':{const el=document.getElementById('visitor-count');if(el)el.textContent=payload.count||0;break;}
       }
     }catch(err){console.error('[SSE]',err)}
   };
@@ -944,6 +945,7 @@ window.triggerValidation=async function(id){
 
 // Load archetypes for agent dots
 fetch('/api/archetypes').then(r=>r.json()).then(a=>{window._archetypes=a}).catch(()=>{});
+fetch('/api/visitors').then(r=>r.json()).then(d=>{const el=document.getElementById('visitor-count');if(el)el.textContent=d.count||0}).catch(()=>{});
 
 // ══════════════════════════════════
 // PREDICTIONS VIEW

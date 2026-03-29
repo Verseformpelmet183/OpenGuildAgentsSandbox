@@ -532,3 +532,10 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .ad-loading{padding:2rem;text-align:center;font-size:.6rem;color:var(--dim)}
 .agent-card{cursor:pointer;transition:transform .1s}
 .agent-card:hover{transform:translateY(-2px)}
+
+/* Live visitor counter */
+.sb-visitors{padding:.6rem 1rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:.4rem;flex-shrink:0}
+.sb-visitor-dot{width:6px;height:6px;border-radius:50%;background:#48c878;animation:visitorPulse 2s ease infinite;flex-shrink:0}
+@keyframes visitorPulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sb-visitor-count{font-family:var(--mono);font-size:.65rem;color:var(--fg);font-weight:600}
+.sb-visitor-label{font-family:var(--mono);font-size:.55rem;color:var(--dim)}

@@ -12,8 +12,9 @@ import { getEnabledSkills, executeSkill } from './skill-engine.js';
 
 // ── SSE ──────────────────────────────────────────────
 let sseClients = [];
-export function addSSEClient(res) { sseClients.push(res); }
-export function removeSSEClient(res) { sseClients = sseClients.filter(c => c !== res); }
+export function addSSEClient(res) { sseClients.push(res); broadcast('visitors', { count: sseClients.length }); }
+export function removeSSEClient(res) { sseClients = sseClients.filter(c => c !== res); setTimeout(() => broadcast('visitors', { count: sseClients.length }), 100); }
+export function getVisitorCount() { return sseClients.length; }
 
 export function broadcast(type, data) {
   const envelope = JSON.stringify({ type, payload: data });

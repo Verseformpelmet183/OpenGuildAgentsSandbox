@@ -2,7 +2,7 @@ import express from 'express';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import db from '../db/database.js';
-import { addSSEClient, removeSSEClient, broadcast } from '../engine/discussion.js';
+import { addSSEClient, removeSSEClient, broadcast, getVisitorCount } from '../engine/discussion.js';
 import { getAllAgentStates } from '../engine/agent-state.js';
 import { archetypes } from '../agents/archetypes.js';
 import { getBrainGraph, getBrainStats, getEntityConnections, backfillBrain, getBrainArtifacts } from '../engine/brain.js';
@@ -608,6 +608,11 @@ router.post('/skills', (req, res) => {
 router.post('/skills/:id/toggle', (req, res) => {
   db.prepare('UPDATE skills SET enabled = NOT enabled WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
+});
+
+// Live visitor count
+router.get('/visitors', (req, res) => {
+  res.json({ count: getVisitorCount() });
 });
 
 export default router;
