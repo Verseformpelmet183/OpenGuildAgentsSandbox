@@ -316,6 +316,22 @@ body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;o
 .ba-validate-btn{font-family:var(--mono);font-size:.6rem;padding:.35rem .7rem;border:1px solid var(--accent);border-radius:4px;background:transparent;color:var(--accent);cursor:pointer;transition:all .15s}
 .ba-validate-btn:hover{background:var(--accent);color:var(--bg)}
 
+/* Artifact Report View */
+.ar-agents{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.4rem}
+.ar-agent{font-family:var(--mono);font-size:.52rem;padding:.15rem .35rem;border-radius:4px;border-left:2px solid;background:var(--bg3);display:inline-flex;align-items:center;gap:.2rem}
+.ar-agent-avatar{font-size:.65rem}
+.ar-content{padding:.4rem .6rem;overflow-y:auto;max-height:60vh}
+.ar-title{font-family:var(--mono);font-size:.8rem;font-weight:600;color:var(--accent);margin-bottom:.4rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)}
+.ar-section-label{font-family:var(--mono);font-size:.55rem;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-top:.6rem;margin-bottom:.2rem;padding-top:.4rem;border-top:1px solid var(--border)}
+.ar-section-body{font-family:var(--sans);font-size:.65rem;color:var(--text2);line-height:1.5}
+.ar-bullet{padding:.15rem 0 .15rem .4rem;border-left:2px solid var(--border2);margin-bottom:.15rem;font-size:.62rem;color:var(--text2);line-height:1.4}
+.ar-bullet strong{color:var(--text);font-weight:500}
+.ar-para{font-size:.62rem;color:var(--text2);line-height:1.5;margin-bottom:.3rem}
+.ar-link{color:var(--accent);text-decoration:none}
+.ar-link:hover{text-decoration:underline}
+.ar-code{font-family:var(--mono);font-size:.55rem;background:var(--bg);padding:.1rem .2rem;border-radius:2px}
+.ar-body{font-family:var(--sans);font-size:.65rem;color:var(--text2);line-height:1.5}
+
 /* Tool Attachments in Chat */
 .tool-attach{margin-top:.35rem;padding:.35rem .5rem;border-left:2px solid var(--accent);border-radius:0 4px 4px 0;background:var(--bg3);font-family:var(--mono);font-size:.55rem}
 .tool-skill-label{display:inline-block;padding:.1rem .3rem;border-radius:3px;background:rgba(200,164,78,.15);color:var(--accent);font-size:.45rem;text-transform:uppercase;letter-spacing:.06em;margin-right:.4rem}

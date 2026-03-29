@@ -49,9 +49,9 @@ function getQuestTeam() {
     const active = getActiveAgents().filter(a => !agents.find(g => g.agent_id === a.agent_id));
     agents = [...agents, ...active];
   }
-  // Shuffle and take 2-4
+  // Shuffle and take exactly 2
   agents = agents.sort(() => Math.random() - 0.5);
-  return agents.slice(0, Math.min(4, Math.max(2, agents.length)));
+  return agents.slice(0, 2);
 }
 
 // Main quest execution — collaborative multi-agent research

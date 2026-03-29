@@ -1,4 +1,6 @@
 import express from 'express';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 import db from '../db/database.js';
 import { addSSEClient, removeSSEClient, broadcast } from '../engine/discussion.js';
 import { getAllAgentStates } from '../engine/agent-state.js';
@@ -417,6 +419,44 @@ router.get('/brain/artifacts', (req, res) => {
 router.get('/brain/artifacts/:id/validations', (req, res) => {
   const validations = getArtifactValidations(parseInt(req.params.id));
   res.json(validations);
+});
+
+// Artifact full detail — content + extracted entities + connections
+router.get('/brain/artifacts/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const artifact = db.prepare('SELECT * FROM brain_artifacts WHERE id = ?').get(id);
+  if (!artifact) return res.status(404).json({ error: 'Artifact not found' });
+
+  // Read .md content
+  const artPath = join(process.cwd(), 'src/data/quests', artifact.filename);
+  let artContent = '';
+  if (existsSync(artPath)) {
+    artContent = readFileSync(artPath, 'utf8');
+  }
+
+  // Get quest info
+  let quest = null;
+  if (artifact.quest_id) {
+    quest = db.prepare('SELECT id, title, description, priority, status, completed_at FROM quests WHERE id = ?').get(artifact.quest_id);
+  }
+
+  // Get validations
+  const validations = getArtifactValidations(id);
+
+  // Get agent info
+  const agentIds = (artifact.agent_ids || '').split(',').filter(Boolean);
+  const agents = agentIds.map(aid => {
+    const arch = archetypes.find(a => a.id === aid.trim());
+    return arch ? { id: arch.id, name: arch.name, avatar: arch.avatar, color: arch.color, title: arch.title } : { id: aid, name: aid };
+  });
+
+  res.json({
+    ...artifact,
+    content: artContent,
+    quest,
+    validations,
+    agents
+  });
 });
 
 router.post('/brain/artifacts/:id/validate', async (req, res) => {

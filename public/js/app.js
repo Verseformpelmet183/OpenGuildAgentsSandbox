@@ -657,37 +657,107 @@ window.filterArtifacts=function(q){
 window.showArtifactDetail=async function(id){
   const panel=document.getElementById('brain-detail');
   panel.classList.add('open');
-  panel.innerHTML='<div style="padding:1rem;font-size:.7rem;color:var(--dim)">Loading artifact...</div>';
+  panel.innerHTML='<div style="padding:1rem;font-size:.7rem;color:var(--dim)">Loading report...</div>';
   try{
-    const [artRes,valRes]=await Promise.all([fetch('/api/brain/artifacts'),fetch(`/api/brain/artifacts/${id}/validations`)]);
-    const artifacts=await artRes.json();
-    const validations=await valRes.json();
-    const a=artifacts.find(x=>x.id===id);
-    if(!a){panel.innerHTML='<div style="padding:1rem">Not found</div>';return}
+    const res=await fetch(`/api/brain/artifacts/${id}`);
+    if(!res.ok){panel.innerHTML='<div style="padding:1rem">Not found</div>';return}
+    const a=await res.json();
     const sc=STATUS_COLORS[a.validation_status]||'#888';
+
+    // Parse .md content into sections
+    const sections=parseMarkdownSections(a.content||'');
+
+    // Render agents
+    const agentsHtml=a.agents?.length?`<div class="ar-agents">${a.agents.map(ag=>`<span class="ar-agent" style="border-color:${ag.color||'#888'}"><span class="ar-agent-avatar">${ag.avatar||'?'}</span> ${esc(ag.name||ag.id)}</span>`).join('')}</div>`:'';
+
+    // Render content sections
+    const contentHtml=sections.map(s=>{
+      if(s.level===1)return `<div class="ar-title">${esc(s.text)}</div>`;
+      if(s.level===2)return `<div class="ar-section-label">${esc(s.text)}</div><div class="ar-section-body">${renderMdBlock(s.body)}</div>`;
+      return `<div class="ar-body">${renderMdBlock(s.body)}</div>`;
+    }).join('');
+
+    // Render validations
+    const valsHtml=a.validations?.length?a.validations.map(v=>`
+      <div class="ba-vote ba-vote-${v.vote}">
+        <span class="ba-vote-agent" style="color:${v.agent_color||'#888'}">${esc(v.agent_name||v.agent_id)}</span>
+        <span class="ba-vote-badge">${v.vote==='approve'?'✓':'✗'} ${v.vote}</span>
+        <div class="ba-vote-reason">${esc(v.reasoning||'')}</div>
+        ${v.facts_checked?`<div class="ba-vote-facts">${v.facts_verified}/${v.facts_checked} facts verified</div>`:''}
+      </div>`).join(''):'';
+
     panel.innerHTML=`
       <div class="bd-header" style="position:relative">
         <button class="bd-close" onclick="closeBrainDetail()">✕</button>
         <div class="bd-name" style="color:${sc}">◆ ${esc(a.title||a.filename)}</div>
         <span class="ba-badge ba-badge-${a.validation_status}" style="margin-top:4px;display:inline-block">${a.validation_status}</span>
-        <div class="bd-meta">${(a.created_at||'').split('T')[0]||'—'}</div>
+        <div class="bd-meta">${(a.created_at||'').split('T')[0]||'—'}${a.quest?` · Quest #${a.quest.id}`:''}</div>
+        ${agentsHtml}
       </div>
-      ${validations.length?`<div class="bd-section">
-        <div class="bd-section-label">Validation Votes (${validations.length})</div>
-        ${validations.map(v=>`
-          <div class="ba-vote ba-vote-${v.vote}">
-            <span class="ba-vote-agent" style="color:${v.agent_color||'#888'}">${esc(v.agent_name||v.agent_id)}</span>
-            <span class="ba-vote-badge">${v.vote==='approve'?'✓':'✗'} ${v.vote}</span>
-            <div class="ba-vote-reason">${esc(v.reasoning||'')}</div>
-            ${v.facts_checked?`<div class="ba-vote-facts">${v.facts_verified}/${v.facts_checked} facts verified</div>`:''}
-          </div>
-        `).join('')}
-      </div>`:'<div class="bd-section"><div class="bd-section-label">No validations yet</div></div>'}
-      <div class="bd-section">
-        <button class="ba-validate-btn" onclick="triggerValidation(${id})">Trigger Validation</button>
+      <div class="ar-content">${contentHtml}</div>
+      ${valsHtml?`<div class="bd-section"><div class="bd-section-label">Validation (${a.validations.length})</div>${valsHtml}</div>`:''}
+      <div class="bd-section" style="display:flex;gap:.3rem">
+        <button class="ba-validate-btn" onclick="triggerValidation(${id})">Validate</button>
       </div>`;
-  }catch(e){panel.innerHTML='<div style="padding:1rem;font-size:.7rem;color:var(--dim)">Error</div>'}
+  }catch(e){panel.innerHTML='<div style="padding:1rem;font-size:.7rem;color:var(--dim)">Error loading report</div>'}
 };
+
+// Simple markdown section parser
+function parseMarkdownSections(md){
+  const lines=md.split('\n');
+  const sections=[];
+  let current=null;
+  for(const line of lines){
+    const h1=line.match(/^#\s+(.+)/);
+    const h2=line.match(/^##\s+(.+)/);
+    if(h1){
+      if(current)sections.push(current);
+      current={level:1,text:h1[1],body:''};
+    }else if(h2){
+      if(current)sections.push(current);
+      current={level:2,text:h2[1],body:''};
+    }else{
+      if(!current)current={level:0,text:'',body:''};
+      current.body+=line+'\n';
+    }
+  }
+  if(current)sections.push(current);
+  return sections;
+}
+
+// Render markdown block (bullets, bold, links, plain text)
+function renderMdBlock(text){
+  if(!text)return '';
+  return text.split('\n').map(line=>{
+    line=line.trim();
+    if(!line)return '';
+    // Bullet points
+    const bullet=line.match(/^[-*]\s+(.+)/);
+    if(bullet){
+      let content=bullet[1];
+      content=mdInline(content);
+      return `<div class="ar-bullet">• ${content}</div>`;
+    }
+    // Numbered list
+    const num=line.match(/^\d+\.\s+(.+)/);
+    if(num){
+      let content=num[1];
+      content=mdInline(content);
+      return `<div class="ar-bullet">${content}</div>`;
+    }
+    // Regular paragraph
+    return `<div class="ar-para">${mdInline(line)}</div>`;
+  }).join('');
+}
+
+// Inline markdown: bold, links, code
+function mdInline(text){
+  text=esc(text);
+  text=text.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  text=text.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" class="ar-link">$1</a>');
+  text=text.replace(/`([^`]+)`/g,'<code class="ar-code">$1</code>');
+  return text;
+}
 
 window.triggerValidation=async function(id){
   try{
