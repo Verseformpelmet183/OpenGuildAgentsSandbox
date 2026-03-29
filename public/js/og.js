@@ -704,7 +704,10 @@ window.showAgentDetail=async function(agentId){
   agentDetailOpen=true;
   agentDetailAgentId=agentId;
   grid.style.display='block';
+  grid.style.overflowY='auto';
+  grid.style.flex='1';
   grid.innerHTML='<div class="ad-loading">Loading agent...</div>';
+  grid.scrollTop=0;
 
   try{
     const res=await fetch(`/api/agents/${agentId}`);
@@ -723,6 +726,10 @@ window.showAgentDetail=async function(agentId){
 
     const energyPct=a.state?Math.round((1-(a.state.progress||0))*100):100;
 
+    // Force repaint on mobile Safari
+    grid.offsetHeight;
+    requestAnimationFrame(() => { grid.style.opacity='1'; });
+    
     grid.innerHTML=`
       <div class="agent-detail-inline">
         <div class="ad-header" style="border-color:${c}">
@@ -782,7 +789,7 @@ window.closeAgentDetail=function(){
   agentDetailOpen=false;
   agentDetailAgentId=null;
   const grid=document.getElementById('agents-grid');
-  if(grid)grid.style.display='';
+  if(grid){grid.style.display='';grid.style.overflowY='';grid.style.flex='';}
   renderAgentsGrid();
 };
 
