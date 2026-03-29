@@ -161,42 +161,84 @@ Continue the conversation naturally (1-3 sentences). You must respond to what wa
 
     broadcast('guild-typing', { agent_id: speaker.agent_id, agent_name: arch.name });
 
-    // 20% chance to activate a skill instead of normal chat
-    const shouldUseSkill = Math.random() < 0.20;
     let responseText = null;
     let responseToolData = null;
 
-    if (shouldUseSkill && recent.length >= 5) {
+    // Agent decides: talk normally OR use a skill?
+    // Ask the AI to choose based on conversation context
+    if (recent.length >= 5) {
       const skills = getEnabledSkills();
       if (skills.length) {
-        const skill = skills[Math.floor(Math.random() * skills.length)];
-        console.log(`[GuildChat] ${arch.name} activating skill: ${skill.name}`);
+        const skillList = skills.map(s => `- ${s.name}: ${s.description.slice(0, 80)}`).join('\n');
+        const lastMessages = recent.slice(-5).map(m => {
+          const name = getArchetype(m.agent_id)?.name || m.agent_id;
+          return `${name}: ${m.content.slice(0, 100)}`;
+        }).join('\n');
 
-        const lastMsg = recent[recent.length - 1];
-        const skillContext = {
-          message: lastMsg?.content || '',
-          topic: lastMsg?.content || '',
-          claim: lastMsg?.content || '',
-          recentMessages: recent.map(m => ({
-            agent_id: m.agent_id,
-            agent_name: getArchetype(m.agent_id)?.name || m.agent_id,
-            content: m.content
-          }))
-        };
+        const decisionResult = await callKimi(
+          `You are ${arch.name} (${arch.title}). ${arch.personality}
 
-        try {
-          const skillOutput = await executeSkill(skill, speaker.agent_id, skillContext);
-          if (skillOutput?.text) {
-            responseText = `⚡ [${skill.name}] ${skillOutput.text.trim()}`;
-            responseToolData = skillOutput.toolData || null;
+You're in a conversation and have access to these skills:
+${skillList}
+
+Recent conversation:
+${lastMessages}
+
+Based on the conversation, should you use a skill right now? Choose ONE:
+- SPEAK — just continue the conversation normally (most common, ~70% of the time)
+- USE: <skill name> — activate a specific skill because the conversation calls for it
+
+Only use a skill when it genuinely adds value. Examples:
+- Someone makes a dubious claim → Fact Checker
+- Discussion is going in circles → Deep Reflect
+- Nobody's considered the opposite → Devil's Advocate
+- A topic needs investigation → Deep Research
+- You want to trace entity links → Connection Mapper
+- You notice patterns in recent news → Trend Spotter
+- A source's credibility is questioned → Source Analyzer
+- Long discussion needs wrapping up → Summarizer
+
+Reply with ONLY one line: either "SPEAK" or "USE: <exact skill name>"`,
+          '', { maxTokens: 20, temperature: 0.5 }
+        );
+
+        const decision = (decisionResult?.text || 'SPEAK').trim();
+        const useMatch = decision.match(/^USE:\s*(.+)/i);
+
+        if (useMatch) {
+          const chosenName = useMatch[1].trim();
+          const chosenSkill = skills.find(s => s.name.toLowerCase() === chosenName.toLowerCase());
+
+          if (chosenSkill) {
+            console.log(`[GuildChat] ${arch.name} chose skill: ${chosenSkill.name}`);
+
+            const lastMsg = recent[recent.length - 1];
+            const skillContext = {
+              message: lastMsg?.content || '',
+              topic: lastMsg?.content || '',
+              claim: lastMsg?.content || '',
+              recentMessages: recent.map(m => ({
+                agent_id: m.agent_id,
+                agent_name: getArchetype(m.agent_id)?.name || m.agent_id,
+                content: m.content
+              }))
+            };
+
+            try {
+              const skillOutput = await executeSkill(chosenSkill, speaker.agent_id, skillContext);
+              if (skillOutput?.text) {
+                responseText = `⚡ [${chosenSkill.name}] ${skillOutput.text.trim()}`;
+                responseToolData = skillOutput.toolData || null;
+              }
+            } catch (e) {
+              console.error(`[GuildChat] Skill execution error:`, e.message);
+            }
           }
-        } catch (e) {
-          console.error(`[GuildChat] Skill execution error:`, e.message);
         }
       }
     }
 
-    // Fall back to normal conversation if skill didn't produce output
+    // Fall back to normal conversation
     if (!responseText) {
       const result = await callKimi(prompt, '', { maxTokens: 150, temperature: 0.9 });
       if (!result?.text) { isRunning = false; return; }

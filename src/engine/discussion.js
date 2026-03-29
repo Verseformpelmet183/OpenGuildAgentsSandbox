@@ -8,6 +8,7 @@ import { getUndiscussedNews, markDiscussed } from '../feeds/rss.js';
 import { callKimi } from './kimi.js';
 import { fetchArticle } from './reader.js';
 import { extractBrain } from './brain.js';
+import { getEnabledSkills, executeSkill } from './skill-engine.js';
 
 // ── SSE ──────────────────────────────────────────────
 let sseClients = [];
@@ -526,10 +527,67 @@ export async function discussionTick() {
     const arch = getArchetype(speaker.agent_id);
     broadcast('typing', { agent_id: speaker.agent_id, agent_name: arch?.name });
 
-    // 7. Generate & post
-    const result = await generateResponse(speaker.agent_id, context, newsItem);
-    if (result?.text) {
-      postMessage(speaker.agent_id, result.text, newsItem, result.usage);
+    // 7. Generate & post — agent decides: normal response OR use a skill
+    let result = null;
+    let skillUsed = false;
+
+    // Let agent decide if a skill is appropriate for this context
+    if (context.recentMessages?.length >= 3) {
+      const skills = getEnabledSkills();
+      if (skills.length) {
+        const skillList = skills.map(s => `- ${s.name}: ${s.description.slice(0, 60)}`).join('\n');
+        const recentChat = context.recentMessages.slice(-5).map(m => `${m.agent_name || m.agent_id}: ${m.content?.slice(0, 80)}`).join('\n');
+        const newsCtx = newsItem ? `Current news: "${newsItem.title}"` : '';
+
+        const decisionResult = await callKimi(
+          `You are ${arch?.name} (${arch?.title}). You have these skills:
+${skillList}
+
+${newsCtx}
+Recent discussion:
+${recentChat}
+
+Should you use a skill or respond normally? Reply ONLY: "SPEAK" or "USE: <skill name>"
+Use skills sparingly (~25%) — only when genuinely useful.`,
+          '', { maxTokens: 20, temperature: 0.5 }
+        );
+
+        const decision = (decisionResult?.text || 'SPEAK').trim();
+        const useMatch = decision.match(/^USE:\s*(.+)/i);
+
+        if (useMatch) {
+          const chosenSkill = skills.find(s => s.name.toLowerCase() === useMatch[1].trim().toLowerCase());
+          if (chosenSkill) {
+            console.log(`[Engine] ${arch?.name} chose skill: ${chosenSkill.name}`);
+            const lastMsg = context.recentMessages[context.recentMessages.length - 1];
+            const skillCtx = {
+              message: lastMsg?.content || newsItem?.title || '',
+              topic: newsItem?.title || lastMsg?.content || '',
+              claim: lastMsg?.content || '',
+              recentMessages: context.recentMessages.map(m => ({
+                agent_id: m.agent_id,
+                agent_name: m.agent_name || m.agent_id,
+                content: m.content
+              }))
+            };
+            try {
+              const skillOutput = await executeSkill(chosenSkill, speaker.agent_id, skillCtx);
+              if (skillOutput?.text) {
+                const skillText = `⚡ [${chosenSkill.name}] ${skillOutput.text.trim()}`;
+                postMessage(speaker.agent_id, skillText, newsItem, null);
+                skillUsed = true;
+              }
+            } catch (e) { console.error(`[Engine] Skill error:`, e.message); }
+          }
+        }
+      }
+    }
+
+    if (!skillUsed) {
+      result = await generateResponse(speaker.agent_id, context, newsItem);
+      if (result?.text) {
+        postMessage(speaker.agent_id, result.text, newsItem, result.usage);
+      }
     }
 
     // 7b. Deep Reader — 40% chance when a news item with a link was just discussed
