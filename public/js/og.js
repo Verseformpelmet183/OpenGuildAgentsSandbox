@@ -111,8 +111,14 @@ window.switchView=function(view){
   document.getElementById('sidebar').classList.remove('open');
   // Lazy load view data
   if(!viewsLoaded[view]){loadView(view);viewsLoaded[view]=true}
-  // Resize brain canvas when switching to it
-  if(view==='brain'&&brainCanvas){setTimeout(brainResize,50);if(!brainAnim&&brainNodes.length){brainAnim=true;animBrain()}}
+  // Resize brain canvas when switching to it - keep animation running
+  if(view==='brain'){
+    if(brainCanvas){
+      setTimeout(brainResize,50);
+      // Always ensure animation is running when brain view is visible
+      if(!brainAnim){brainAnim=true;animBrain()}
+    }
+  }
   // Scroll chat if switching back
   if(view==='world')setTimeout(()=>{if(autoScroll)msEl.scrollTop=msEl.scrollHeight},50);
 };
@@ -351,6 +357,18 @@ const TYPE_COLORS={person:'#c848a0',country:'#5080c8',org:'#c8a44e',technology:'
 const STATUS_COLORS={pending:'#666',validating:'#c8a44e',validated:'#48c878',rejected:'#c85050'};
 
 async function loadBrain(){
+  // Don't reload if already loaded - prevents freeze when switching views
+  if(brainNodes.length > 0) {
+    // Just update stats
+    try {
+      const res = await fetch('/api/brain/stats');
+      const stats = await res.json();
+      document.getElementById('brain-stats').innerHTML=
+        `<b>${stats.entities}</b> entities · <b>${stats.connections}</b> connections · <b>${stats.topics}</b> topics · <span class="brain-artifacts-toggle" onclick="toggleArtifactsPanel()"><b>${stats.artifacts||0}</b> artifacts</span>`;
+    } catch(e) {}
+    return;
+  }
+
   const res=await fetch('/api/brain');const data=await res.json();
   document.getElementById('brain-stats').innerHTML=
     `<b>${data.stats.entities}</b> entities · <b>${data.stats.connections}</b> connections · <b>${data.stats.topics}</b> topics · <span class="brain-artifacts-toggle" onclick="toggleArtifactsPanel()"><b>${data.stats.artifacts||0}</b> artifacts</span>`;
@@ -361,6 +379,7 @@ async function loadBrain(){
   setTimeout(()=>{
     brainResize();
     initBrainGraph(data);
+    // Always start animation - it will check currentView internally
     if(!brainAnim){brainAnim=true;animBrain()}
   },50);
 
@@ -439,7 +458,7 @@ function initBrainGraph(data){
       return{
         artifactId:a.id,name:a.title||a.filename,
         status:a.validation_status||'pending',
-        x:w/2+Math.cos(angle)*dist,y:h/2+Math.sin(angle)*dist,
+        x:w/2+Math.cos(angle)*dist,y:w/2+Math.sin(angle)*dist,
         vx:0,vy:0,r:10,
         color:STATUS_COLORS[a.validation_status]||'#c8a44e',
         isArtifact:true
@@ -573,11 +592,16 @@ function brainDraw(){
 
 let brainFrame=0;
 function animBrain(){
-  if(!brainCanvas||!brainNodes.length||currentView!=='brain'){brainAnim=false;return}
+  // Always run animation, but only draw when brain view is active
+  // This prevents "frozen" state when switching views
+  if(!brainCanvas){brainAnim=false;return}
   brainFrame++;
   // Simulate every 2nd frame to save CPU
-  if(brainFrame%2===0)brainSimulate();
-  brainDraw();
+  if(brainFrame%2===0 && brainNodes.length > 0)brainSimulate();
+  // Only draw if we're on brain view OR if we have nodes (prevents blank canvas)
+  if(currentView==='brain' || brainNodes.length > 0){
+    brainDraw();
+  }
   requestAnimationFrame(animBrain);
 }
 
@@ -1129,6 +1153,7 @@ async function loadGuildMessages(){
     const msgs=await res.json();
     if(msgs.length>0){const w=guildMsEl.querySelector('.sy');if(w)w.remove()}
     for(const msg of msgs)renderGuildMsg(msg);
+
   }catch(err){console.error('Guild load failed:',err)}
 }
 
